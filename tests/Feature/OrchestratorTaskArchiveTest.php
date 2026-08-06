@@ -54,6 +54,8 @@ class OrchestratorTaskArchiveTest extends TestCase
         Storage::disk('local')->put("orchestrator/tasks/{$task->id}/review.md", 'Review retained.');
         Storage::disk('local')->put("orchestrator/tasks/{$task->id}/verification.md", 'Verification retained.');
         $task->update(['last_verification_status' => 'passed']);
+        Storage::disk('local')->put("orchestrator/tasks/{$task->id}/acceptance.md", 'Acceptance retained.');
+        $task->update(['last_acceptance_status' => 'passed']);
         $task->update([
             'review_decision' => 'approved',
             'reviewed_at' => now(),
@@ -71,6 +73,7 @@ class OrchestratorTaskArchiveTest extends TestCase
         $this->assertStringContainsString('Review retained.', Storage::disk('local')->get("orchestrator/tasks/{$task->id}/review.md"));
         $this->assertStringContainsString('Status: passed', $archive);
         $this->assertStringContainsString('Latest verification', $archive);
+        $this->assertStringContainsString('Latest acceptance check', $archive);
         $this->assertStringContainsString('Decision: approved', $archive);
         $this->assertStringContainsString('Decision retained.', Storage::disk('local')->get("orchestrator/tasks/{$task->id}/decision.md"));
         $this->assertDirectoryExists($this->repo);

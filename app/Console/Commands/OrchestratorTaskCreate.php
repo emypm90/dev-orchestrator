@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\OrchestratorProject;
 use App\Models\OrchestratorTask;
+use App\Services\Orchestrator\ExpectedFilePath;
 use Illuminate\Console\Command;
 
 class OrchestratorTaskCreate extends Command
@@ -13,11 +14,12 @@ class OrchestratorTaskCreate extends Command
         {title : Short task title}
         {--description= : Task context and requested work}
         {--acceptance= : Acceptance criteria}
-        {--autonomy=medium : low, medium, or high}';
+        {--autonomy=medium : low, medium, or high}
+        {--expected-file=* : Relative file required for acceptance; repeat option for multiple files}';
 
     protected $description = 'Create a task for a registered project';
 
-    public function handle(): int
+    public function handle(ExpectedFilePath $paths): int
     {
         $project = OrchestratorProject::where('name', $this->argument('project'))->first();
         if ($project === null) {
@@ -33,12 +35,21 @@ class OrchestratorTaskCreate extends Command
             return self::FAILURE;
         }
 
+        try {
+            $expectedFiles = array_values(array_unique(array_map($paths->normalize(...), (array) $this->option('expected-file'))));
+        } catch (\InvalidArgumentException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+
         $task = OrchestratorTask::create([
             'project_id' => $project->id,
             'title' => $this->argument('title'),
             'description' => $this->option('description'),
             'acceptance_criteria' => $this->option('acceptance'),
             'autonomy' => $autonomy,
+            'expected_files' => $expectedFiles === [] ? null : $expectedFiles,
         ]);
 
         $this->info("Created task #{$task->id}: {$task->title}");

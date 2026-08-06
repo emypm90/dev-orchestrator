@@ -52,9 +52,10 @@ class WeeklyReportBuilder
             ->map(function (Collection $projectTasks, string $project): string {
                 $items = $projectTasks->map(function (OrchestratorTask $task): string {
                     $verification = $task->last_verification_status === null ? '' : "; verification: {$task->last_verification_status}";
+                    $acceptance = $task->last_acceptance_status === null ? '' : "; acceptance: {$task->last_acceptance_status}";
                     $decision = $task->review_decision === null ? '' : "; review: {$task->review_decision}";
 
-                    return "- [{$task->status}] #{$task->id} {$task->title} (".$this->taskDate($task)->toDateString()."){$verification}{$decision}";
+                    return "- [{$task->status}] #{$task->id} {$task->title} (".$this->taskDate($task)->toDateString()."){$verification}{$acceptance}{$decision}";
                 })->implode("\n");
 
                 return "### {$project}\n{$items}";

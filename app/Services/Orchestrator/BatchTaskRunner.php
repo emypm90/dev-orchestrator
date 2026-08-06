@@ -13,14 +13,15 @@ class BatchTaskRunner
         private OpenCodeRunner $openCode,
         private VerificationRunner $verification,
         private ReviewCollector $reviews,
+        private AcceptanceChecker $acceptance,
     ) {
     }
 
     /**
      * @param  array<int, array{task: OrchestratorTask, prompt_path: string}>  $jobs
-     * @return array<int, array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, next_action: string}>
+     * @return array<int, array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, acceptance_path: ?string, acceptance_status: ?string, next_action: string}>
      */
-    public function run(array $jobs, int $concurrency, bool $verify, bool $review): array
+    public function run(array $jobs, int $concurrency, bool $verify, bool $review, bool $checkAcceptance): array
     {
         $results = [];
         $runPaths = [];
@@ -37,7 +38,7 @@ class BatchTaskRunner
                 $results[$task->id] = $this->result($task, $job['prompt_path'], $runPaths[$task->id], 'blocked', null, 'Install or expose opencode, then rerun this task.');
             }
 
-            return $this->completeArtifacts($jobs, $results, $verify, $review);
+            return $this->completeArtifacts($jobs, $results, $verify, $review, $checkAcceptance);
         }
 
         $pending = array_values($jobs);
@@ -79,15 +80,15 @@ class BatchTaskRunner
             }
         }
 
-        return $this->completeArtifacts($jobs, $results, $verify, $review);
+        return $this->completeArtifacts($jobs, $results, $verify, $review, $checkAcceptance);
     }
 
     /**
      * @param  array<int, array{task: OrchestratorTask, prompt_path: string}>  $jobs
      * @param  array<int, array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, next_action: string}>  $results
-     * @return array<int, array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, next_action: string}>
+     * @return array<int, array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, acceptance_path: ?string, acceptance_status: ?string, next_action: string}>
      */
-    private function completeArtifacts(array $jobs, array $results, bool $verify, bool $review): array
+    private function completeArtifacts(array $jobs, array $results, bool $verify, bool $review, bool $checkAcceptance): array
     {
         foreach ($jobs as $job) {
             $task = $job['task']->refresh()->load('project');
@@ -113,6 +114,19 @@ class BatchTaskRunner
                 }
             }
 
+            if ($checkAcceptance) {
+                try {
+                    $acceptance = $this->acceptance->check($task->refresh());
+                    $result['acceptance_path'] = $acceptance['path'];
+                    $result['acceptance_status'] = $acceptance['status'];
+                    if ($acceptance['status'] !== 'passed') {
+                        $result['next_action'] = 'Inspect acceptance.md and create any missing expected files.';
+                    }
+                } catch (Throwable $exception) {
+                    $result['next_action'] = 'Acceptance check could not run: '.$exception->getMessage();
+                }
+            }
+
             $results[$task->id] = $result;
         }
 
@@ -120,7 +134,7 @@ class BatchTaskRunner
     }
 
     /**
-     * @return array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, next_action: string}
+     * @return array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, acceptance_path: ?string, acceptance_status: ?string, next_action: string}
      */
     private function result(OrchestratorTask $task, string $promptPath, string $runPath, string $status, ?int $exitCode, string $nextAction): array
     {
@@ -131,6 +145,8 @@ class BatchTaskRunner
             'run_path' => $runPath,
             'verification_path' => null,
             'review_path' => null,
+            'acceptance_path' => null,
+            'acceptance_status' => null,
             'next_action' => $nextAction,
         ];
     }

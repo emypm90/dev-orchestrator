@@ -13,7 +13,7 @@ use Throwable;
 
 class OrchestratorTaskBatchRun extends Command
 {
-    protected $signature = 'orchestrator:task-batch-run {tasks* : Task IDs} {--concurrency=2 : Max concurrent tasks} {--prepare : Prepare draft tasks before running} {--verify : Run verification after task run} {--review : Collect review artifact after task run}';
+    protected $signature = 'orchestrator:task-batch-run {tasks* : Task IDs} {--concurrency=2 : Max concurrent tasks} {--prepare : Prepare draft tasks before running} {--verify : Run verification after task run} {--review : Collect review artifact after task run} {--acceptance : Run expected-file acceptance checks after task run}';
 
     protected $description = 'Run independent prepared tasks with a controlled OpenCode concurrency limit';
 
@@ -89,7 +89,7 @@ class OrchestratorTaskBatchRun extends Command
         }
 
         $startedAt = now();
-        $results = $runner->run($jobs, $concurrency, $this->option('verify'), $this->option('review'));
+        $results = $runner->run($jobs, $concurrency, $this->option('verify'), $this->option('review'), $this->option('acceptance'));
         $path = $this->saveArtifact(
             $taskIds,
             $concurrency,
@@ -98,7 +98,7 @@ class OrchestratorTaskBatchRun extends Command
             $results,
             $conflicts->detect(array_column($jobs, 'task')),
         );
-        $failed = collect($results)->contains(fn (array $result): bool => $result['status'] !== 'completed');
+        $failed = collect($results)->contains(fn (array $result): bool => $result['status'] !== 'completed' || ($this->option('acceptance') && $result['acceptance_status'] !== 'passed'));
 
         $this->line("Batch artifact: {$path}");
         if ($failed) {
@@ -114,7 +114,7 @@ class OrchestratorTaskBatchRun extends Command
 
     /**
      * @param  array<int, int>  $taskIds
-     * @param  array<int, array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, next_action: string}>  $results
+     * @param  array<int, array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, acceptance_path: ?string, acceptance_status: ?string, next_action: string}>  $results
      * @param  array<string, array<int, int>>  $conflicts
      */
     private function saveArtifact(array $taskIds, int $concurrency, $startedAt, $finishedAt, array $results, array $conflicts): string
@@ -125,11 +125,11 @@ class OrchestratorTaskBatchRun extends Command
             ."- Concurrency: {$concurrency}\n"
             ."- Started: {$startedAt->toIso8601String()}\n"
             ."- Finished: {$finishedAt->toIso8601String()}\n\n"
-            ."| Task | Status | Exit | Prompt | Run log | Verification | Review | Next action |\n"
-            ."| --- | --- | --- | --- | --- | --- | --- | --- |\n";
+            ."| Task | Status | Exit | Prompt | Run log | Verification | Acceptance | Review | Next action |\n"
+            ."| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n";
 
         foreach ($results as $taskId => $result) {
-            $markdown .= "| {$taskId} | {$result['status']} | ".($result['exit_code'] ?? '-')." | {$result['prompt_path']} | {$result['run_path']} | ".($result['verification_path'] ?? '-')." | ".($result['review_path'] ?? '-')." | {$result['next_action']} |\n";
+            $markdown .= "| {$taskId} | {$result['status']} | ".($result['exit_code'] ?? '-')." | {$result['prompt_path']} | {$result['run_path']} | ".($result['verification_path'] ?? '-')." | ".($result['acceptance_path'] ?? '-')." | ".($result['review_path'] ?? '-')." | {$result['next_action']} |\n";
         }
 
         $markdown .= "\n## Potential file conflicts\n";

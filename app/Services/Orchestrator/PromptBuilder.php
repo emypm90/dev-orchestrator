@@ -27,6 +27,9 @@ Autonomy level: {$task->autonomy}
 ## Acceptance criteria
 {$task->acceptance_criteria}
 
+## Expected files
+{$this->expectedFiles($task)}
+
 ## Verification commands
 Test: {$project->test_command}
 Lint: {$project->lint_command}
@@ -79,6 +82,15 @@ PROMPT;
         $path = $this->artifactPath($task, $file);
 
         return Storage::disk('local')->exists($path) ? Storage::disk('local')->get($path) : null;
+    }
+
+    private function expectedFiles(OrchestratorTask $task): string
+    {
+        $files = $task->expected_files ?? [];
+
+        return $files === []
+            ? 'No machine-readable expected files are configured.'
+            : implode("\n", array_map(fn (string $file): string => "- `{$file}`", $files));
     }
 
     private function artifactLocation(OrchestratorTask $task, string $file): ?string

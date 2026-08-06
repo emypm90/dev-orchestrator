@@ -62,6 +62,8 @@ class OrchestratorTaskReviewTest extends TestCase
         ]);
         Storage::disk('local')->put("orchestrator/tasks/{$task->id}/verification.md", 'Verification retained.');
         $task->update(['last_verification_status' => 'passed']);
+        Storage::disk('local')->put("orchestrator/tasks/{$task->id}/acceptance.md", 'Acceptance retained.');
+        $task->update(['last_acceptance_status' => 'passed']);
 
         $this->artisan('orchestrator:task-review', ['task' => $task->id])->assertSuccessful();
 
@@ -74,5 +76,6 @@ class OrchestratorTaskReviewTest extends TestCase
         $this->assertStringContainsString('Fallback summary', $review);
         $this->assertStringContainsString('Latest verification', $review);
         $this->assertStringContainsString('Status: passed', $review);
+        $this->assertStringContainsString('Latest acceptance check', $review);
     }
 }

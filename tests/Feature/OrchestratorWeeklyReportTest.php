@@ -29,6 +29,7 @@ class OrchestratorWeeklyReportTest extends TestCase
         ]);
         $completed->update(['archived_at' => $since->addDay()->setTime(10, 0)]);
         $completed->update(['last_verification_status' => 'passed']);
+        $completed->update(['last_acceptance_status' => 'passed']);
         $completed->update(['review_decision' => 'approved', 'reviewed_at' => $since->addDay()]);
         $blocked = OrchestratorTask::create([
             'project_id' => $project->id,
@@ -57,6 +58,7 @@ class OrchestratorWeeklyReportTest extends TestCase
         $this->assertStringContainsString('Decide retention period', $report);
         $this->assertStringContainsString('Resolve blockers or decisions for', $report);
         $this->assertStringContainsString('verification: passed', $report);
+        $this->assertStringContainsString('acceptance: passed', $report);
         $this->assertStringContainsString('review: approved', $report);
     }
 }

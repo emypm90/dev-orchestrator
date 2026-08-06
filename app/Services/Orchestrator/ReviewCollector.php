@@ -24,7 +24,8 @@ class ReviewCollector
             ."Status: {$task->status}\n\n## Git status\n```\n{$status}\n```\n"
             ."## Diff stat\n```\n".$this->diffStat($trackedStat, $untrackedFiles)."\n```\n"
             ."## Modified files\n```\n".$this->formatLines($files)."\n```\n"
-            ."## Latest verification\n".$this->verification($task)."\n"
+             ."## Latest verification\n".$this->verification($task)."\n"
+             ."## Latest acceptance check\n".$this->acceptance($task)."\n"
             ."## Task summary\n{$summary}\n";
         $path = "orchestrator/tasks/{$task->id}/review.md";
         Storage::disk('local')->put($path, $review);
@@ -101,5 +102,16 @@ class ReviewCollector
         }
 
         return '- Status: '.($task->last_verification_status ?? 'recorded')."\n- Artifact: ".Storage::disk('local')->path($path);
+    }
+
+    private function acceptance(OrchestratorTask $task): string
+    {
+        $path = "orchestrator/tasks/{$task->id}/acceptance.md";
+
+        if (! Storage::disk('local')->exists($path)) {
+            return 'No acceptance artifact found.';
+        }
+
+        return '- Status: '.($task->last_acceptance_status ?? 'recorded')."\n- Artifact: ".Storage::disk('local')->path($path);
     }
 }

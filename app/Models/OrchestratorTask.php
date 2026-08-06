@@ -13,8 +13,9 @@ class OrchestratorTask extends Model
         'project_id', 'title', 'description', 'acceptance_criteria', 'autonomy', 'status',
         'branch_name', 'worktree_path', 'last_exit_code', 'prepared_at', 'started_at', 'finished_at',
         'archived_at', 'archive_path', 'worktree_removed_at', 'latest_commit_hash',
-        'last_verification_status', 'last_verified_at', 'last_verification_path',
-        'review_decision', 'reviewed_at', 'review_notes',
+         'last_verification_status', 'last_verified_at', 'last_verification_path',
+         'review_decision', 'reviewed_at', 'review_notes',
+         'expected_files', 'last_acceptance_status', 'last_acceptance_checked_at', 'last_acceptance_path',
     ];
 
     protected function casts(): array
@@ -26,7 +27,9 @@ class OrchestratorTask extends Model
             'archived_at' => 'datetime',
             'worktree_removed_at' => 'datetime',
             'last_verified_at' => 'datetime',
-            'reviewed_at' => 'datetime',
+             'reviewed_at' => 'datetime',
+             'expected_files' => 'array',
+             'last_acceptance_checked_at' => 'datetime',
         ];
     }
 

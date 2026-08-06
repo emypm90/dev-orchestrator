@@ -65,6 +65,7 @@ class OrchestratorTaskRerunTest extends TestCase
             'reviewed_at' => now(),
             'review_notes' => 'Create the requested docs files.',
             'last_verification_status' => 'failed',
+            'expected_files' => ['docs/requested.md'],
         ]);
         Storage::disk('local')->put("orchestrator/tasks/{$task->id}/decision.md", "# Review decision\n\nCreate docs files.\n");
         Storage::disk('local')->put("orchestrator/tasks/{$task->id}/review.md", '# Review');
@@ -101,6 +102,7 @@ class OrchestratorTaskRerunTest extends TestCase
         $this->assertStringContainsString('Create docs files.', $prompt);
         $this->assertStringContainsString('Create the requested files and preserve good work.', $prompt);
         $this->assertStringContainsString('Do not commit, stage, push', $prompt);
+        $this->assertStringContainsString('`docs/requested.md`', $prompt);
 
         $rerun = Storage::disk('local')->get("orchestrator/tasks/{$task->id}/rerun.md");
         $this->assertStringContainsString('## Rerun attempt 1', $rerun);

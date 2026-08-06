@@ -14,13 +14,14 @@ class RevisionRerunRunner
         private OpenCodeRunner $openCode,
         private VerificationRunner $verification,
         private ReviewCollector $reviews,
+        private AcceptanceChecker $acceptance,
     ) {
     }
 
     /**
-     * @return array{exit_code: int, prompt_path: string, verification_path: ?string, review_path: ?string, rerun_path: string}
+     * @return array{exit_code: int, prompt_path: string, verification_path: ?string, review_path: ?string, acceptance_path: ?string, acceptance_status: ?string, rerun_path: string}
      */
-    public function run(OrchestratorTask $task, ?string $instructions, bool $verify, bool $review): array
+    public function run(OrchestratorTask $task, ?string $instructions, bool $verify, bool $review, bool $checkAcceptance): array
     {
         if ($task->worktree_path === null || ! is_dir($task->worktree_path)) {
             throw new RuntimeException('Task must have an existing worktree before it can be rerun. Prepare it first, or create a child task for new work.');
@@ -40,11 +41,13 @@ class RevisionRerunRunner
         $promptPath = $this->prompts->saveRevision($task->refresh(), $attempt, $instructions);
         $verificationPath = null;
         $reviewPath = null;
+        $acceptancePath = null;
+        $acceptanceStatus = null;
 
         if (! $this->openCode->isAvailable()) {
             $this->openCode->recordUnavailable($task);
 
-            return $this->result($task, $attempt, $startedAt, $instructions, $previousDecision, 1, $promptPath, $verificationPath, $reviewPath);
+            return $this->result($task, $attempt, $startedAt, $instructions, $previousDecision, 1, $promptPath, $verificationPath, $reviewPath, $acceptancePath, $acceptanceStatus);
         }
 
         try {
@@ -57,27 +60,34 @@ class RevisionRerunRunner
             if ($review) {
                 $reviewPath = $this->reviews->collect($task->refresh());
             }
+            if ($checkAcceptance) {
+                $acceptance = $this->acceptance->check($task->refresh());
+                $acceptancePath = $acceptance['path'];
+                $acceptanceStatus = $acceptance['status'];
+            }
         } catch (Throwable $exception) {
-            $this->writeRerun($task, $attempt, $startedAt, $instructions, $previousDecision, 1, $promptPath, $verificationPath, $reviewPath, $exception->getMessage());
+            $this->writeRerun($task, $attempt, $startedAt, $instructions, $previousDecision, 1, $promptPath, $verificationPath, $reviewPath, $acceptancePath, $acceptanceStatus, $exception->getMessage());
 
             throw $exception;
         }
 
-        return $this->result($task, $attempt, $startedAt, $instructions, $previousDecision, $exitCode, $promptPath, $verificationPath, $reviewPath);
+        return $this->result($task, $attempt, $startedAt, $instructions, $previousDecision, $exitCode, $promptPath, $verificationPath, $reviewPath, $acceptancePath, $acceptanceStatus);
     }
 
     /**
-     * @return array{exit_code: int, prompt_path: string, verification_path: ?string, review_path: ?string, rerun_path: string}
+     * @return array{exit_code: int, prompt_path: string, verification_path: ?string, review_path: ?string, acceptance_path: ?string, acceptance_status: ?string, rerun_path: string}
      */
-    private function result(OrchestratorTask $task, int $attempt, $startedAt, ?string $instructions, string $previousDecision, int $exitCode, string $promptPath, ?string $verificationPath, ?string $reviewPath): array
+    private function result(OrchestratorTask $task, int $attempt, $startedAt, ?string $instructions, string $previousDecision, int $exitCode, string $promptPath, ?string $verificationPath, ?string $reviewPath, ?string $acceptancePath, ?string $acceptanceStatus): array
     {
-        $rerunPath = $this->writeRerun($task, $attempt, $startedAt, $instructions, $previousDecision, $exitCode, $promptPath, $verificationPath, $reviewPath);
+        $rerunPath = $this->writeRerun($task, $attempt, $startedAt, $instructions, $previousDecision, $exitCode, $promptPath, $verificationPath, $reviewPath, $acceptancePath, $acceptanceStatus);
 
         return [
             'exit_code' => $exitCode,
             'prompt_path' => $promptPath,
             'verification_path' => $verificationPath,
             'review_path' => $reviewPath,
+            'acceptance_path' => $acceptancePath,
+            'acceptance_status' => $acceptanceStatus,
             'rerun_path' => $rerunPath,
         ];
     }
@@ -100,7 +110,7 @@ class RevisionRerunRunner
         return Storage::disk('local')->exists($path) ? Storage::disk('local')->get($path) : null;
     }
 
-    private function writeRerun(OrchestratorTask $task, int $attempt, $startedAt, ?string $instructions, string $previousDecision, int $exitCode, string $promptPath, ?string $verificationPath, ?string $reviewPath, ?string $error = null): string
+    private function writeRerun(OrchestratorTask $task, int $attempt, $startedAt, ?string $instructions, string $previousDecision, int $exitCode, string $promptPath, ?string $verificationPath, ?string $reviewPath, ?string $acceptancePath, ?string $acceptanceStatus, ?string $error = null): string
     {
         $path = "orchestrator/tasks/{$task->id}/rerun.md";
         $nextAction = $exitCode === 0
@@ -114,6 +124,7 @@ class RevisionRerunRunner
             ."- Prompt: {$promptPath}\n"
             .'- Verification: '.($verificationPath ?? 'Not requested or not completed.')."\n"
             .'- Review: '.($reviewPath ?? 'Not requested or not completed.')."\n"
+            .'- Acceptance: '.($acceptancePath === null ? 'Not requested or not completed.' : "{$acceptanceStatus} ({$acceptancePath})")."\n"
             .'- Next action: '.$nextAction."\n"
             .($error === null ? '' : "- Error: {$error}\n")
             ."\n### Previous decision\n{$previousDecision}\n";

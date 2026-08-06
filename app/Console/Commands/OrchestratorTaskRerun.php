@@ -9,7 +9,7 @@ use Throwable;
 
 class OrchestratorTaskRerun extends Command
 {
-    protected $signature = 'orchestrator:task-rerun {task : Task ID} {--instructions= : Additional revision instructions} {--verify : Run verification after rerun} {--review : Collect review after rerun}';
+    protected $signature = 'orchestrator:task-rerun {task : Task ID} {--instructions= : Additional revision instructions} {--verify : Run verification after rerun} {--review : Collect review after rerun} {--acceptance : Run expected-file acceptance checks after rerun}';
 
     protected $description = 'Rerun a revision, failed, or blocked task without changing Git state';
 
@@ -41,7 +41,7 @@ class OrchestratorTaskRerun extends Command
         }
 
         try {
-            $result = $reruns->run($task, $this->option('instructions'), $this->option('verify'), $this->option('review'));
+            $result = $reruns->run($task, $this->option('instructions'), $this->option('verify'), $this->option('review'), $this->option('acceptance'));
         } catch (Throwable $exception) {
             $this->error("Rerun failed: {$exception->getMessage()}");
 
@@ -56,7 +56,10 @@ class OrchestratorTaskRerun extends Command
         if ($result['review_path'] !== null) {
             $this->line("Review artifact: {$result['review_path']}");
         }
+        if ($result['acceptance_path'] !== null) {
+            $this->line("Acceptance artifact: {$result['acceptance_path']}");
+        }
 
-        return $result['exit_code'] === 0 ? self::SUCCESS : self::FAILURE;
+        return $result['exit_code'] === 0 && ($result['acceptance_status'] === null || $result['acceptance_status'] === 'passed') ? self::SUCCESS : self::FAILURE;
     }
 }

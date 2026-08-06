@@ -129,6 +129,10 @@ class TaskArchiver
         $verification = Storage::disk('local')->exists($verificationPath)
             ? Storage::disk('local')->path($verificationPath)
             : 'No verification artifact found.';
+        $acceptancePath = "orchestrator/tasks/{$task->id}/acceptance.md";
+        $acceptance = Storage::disk('local')->exists($acceptancePath)
+            ? Storage::disk('local')->path($acceptancePath)
+            : 'No acceptance artifact found.';
         $files = $snapshot['files'] === [] ? 'No modified files detected.' : implode("\n", $snapshot['files']);
         $removal = $task->worktree_removed_at !== null
             ? 'Worktree was removed before this archive was refreshed.'
@@ -155,9 +159,12 @@ class TaskArchiver
             .'- Notes: '.($task->review_notes ?? 'Not recorded')."\n"
             ."- Artifact: {$decision}\n\n"
             ."## Latest verification\n"
-            .'- Status: '.($task->last_verification_status ?? 'Not recorded')."\n"
-            ."- Artifact: {$verification}\n\n"
-            ."## Worktree removal\n{$removal}\n"
+             .'- Status: '.($task->last_verification_status ?? 'Not recorded')."\n"
+             ."- Artifact: {$verification}\n\n"
+             ."## Latest acceptance check\n"
+             .'- Status: '.($task->last_acceptance_status ?? 'Not recorded')."\n"
+             ."- Artifact: {$acceptance}\n\n"
+             ."## Worktree removal\n{$removal}\n"
             .($hasWorktree && $snapshot['patch'] !== '' ? "\nTracked changes were saved to `final.patch`.\n" : "\nNo tracked diff was available for `final.patch`.\n");
     }
 }
