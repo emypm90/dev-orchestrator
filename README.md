@@ -20,6 +20,7 @@ From this project directory in PowerShell:
 .\bin\artisan.ps1 orchestrator:task-prepare 1
 .\bin\artisan.ps1 orchestrator:task-run 1
 .\bin\artisan.ps1 orchestrator:task-review 1
+.\bin\artisan.ps1 orchestrator:task-open 1
 .\bin\artisan.ps1 orchestrator:task-status
 ```
 
@@ -33,6 +34,7 @@ From this project directory in PowerShell:
 | `orchestrator:task-run {task}` | Regenerates the prompt and invokes `opencode run --dir <worktree> <prompt>` when available. No commit or push is performed. |
 | `orchestrator:task-review {task}` | Captures current Git status, diff stat, modified files, and `TASK_SUMMARY.md` if the agent wrote it. |
 | `orchestrator:task-status {task?}` | Lists task statuses, branches, and worktree paths. |
+| `orchestrator:task-open {task}` | Opens the task worktree in VS Code. |
 
 ## Artifacts and review
 
