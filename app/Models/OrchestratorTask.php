@@ -13,6 +13,7 @@ class OrchestratorTask extends Model
         'project_id', 'title', 'description', 'acceptance_criteria', 'autonomy', 'status',
         'branch_name', 'worktree_path', 'last_exit_code', 'prepared_at', 'started_at', 'finished_at',
         'archived_at', 'archive_path', 'worktree_removed_at', 'latest_commit_hash',
+        'last_verification_status', 'last_verified_at', 'last_verification_path',
     ];
 
     protected function casts(): array
@@ -23,6 +24,7 @@ class OrchestratorTask extends Model
             'finished_at' => 'datetime',
             'archived_at' => 'datetime',
             'worktree_removed_at' => 'datetime',
+            'last_verified_at' => 'datetime',
         ];
     }
 

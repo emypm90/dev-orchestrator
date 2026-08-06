@@ -52,6 +52,8 @@ class OrchestratorTaskArchiveTest extends TestCase
         file_put_contents($this->repo.DIRECTORY_SEPARATOR.'README.md', "# Source\n\nChanged.\n");
         file_put_contents($this->repo.DIRECTORY_SEPARATOR.'NEW.md', "New file\n");
         Storage::disk('local')->put("orchestrator/tasks/{$task->id}/review.md", 'Review retained.');
+        Storage::disk('local')->put("orchestrator/tasks/{$task->id}/verification.md", 'Verification retained.');
+        $task->update(['last_verification_status' => 'passed']);
 
         $this->artisan('orchestrator:task-archive', ['task' => $task->id])->assertSuccessful();
 
@@ -61,6 +63,8 @@ class OrchestratorTaskArchiveTest extends TestCase
         $this->assertStringContainsString('README.md', $archive);
         $this->assertStringContainsString('NEW.md', $archive);
         $this->assertStringContainsString('Review retained.', Storage::disk('local')->get("orchestrator/tasks/{$task->id}/review.md"));
+        $this->assertStringContainsString('Status: passed', $archive);
+        $this->assertStringContainsString('Latest verification', $archive);
         $this->assertDirectoryExists($this->repo);
 
         $task->refresh();

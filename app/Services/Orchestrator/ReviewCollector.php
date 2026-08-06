@@ -24,6 +24,7 @@ class ReviewCollector
             ."Status: {$task->status}\n\n## Git status\n```\n{$status}\n```\n"
             ."## Diff stat\n```\n".$this->diffStat($trackedStat, $untrackedFiles)."\n```\n"
             ."## Modified files\n```\n".$this->formatLines($files)."\n```\n"
+            ."## Latest verification\n".$this->verification($task)."\n"
             ."## Task summary\n{$summary}\n";
         $path = "orchestrator/tasks/{$task->id}/review.md";
         Storage::disk('local')->put($path, $review);
@@ -89,5 +90,16 @@ class ReviewCollector
             ."- Changed files detected: ".count($files)."\n"
             ."- Git status present: ".($status === '' ? 'No' : 'Yes')."\n"
             ."- Tracked diff present: ".($trackedStat === '' ? 'No' : 'Yes')."\n";
+    }
+
+    private function verification(OrchestratorTask $task): string
+    {
+        $path = "orchestrator/tasks/{$task->id}/verification.md";
+
+        if (! Storage::disk('local')->exists($path)) {
+            return 'No verification artifact found.';
+        }
+
+        return '- Status: '.($task->last_verification_status ?? 'recorded')."\n- Artifact: ".Storage::disk('local')->path($path);
     }
 }

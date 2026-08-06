@@ -123,6 +123,10 @@ class TaskArchiver
     {
         $reviewPath = "orchestrator/tasks/{$task->id}/review.md";
         $review = Storage::disk('local')->exists($reviewPath) ? Storage::disk('local')->path($reviewPath) : 'No review artifact found.';
+        $verificationPath = "orchestrator/tasks/{$task->id}/verification.md";
+        $verification = Storage::disk('local')->exists($verificationPath)
+            ? Storage::disk('local')->path($verificationPath)
+            : 'No verification artifact found.';
         $files = $snapshot['files'] === [] ? 'No modified files detected.' : implode("\n", $snapshot['files']);
         $removal = $task->worktree_removed_at !== null
             ? 'Worktree was removed before this archive was refreshed.'
@@ -143,6 +147,9 @@ class TaskArchiver
             ."## Diff stat\n```\n".($snapshot['diff_stat'] ?: 'No tracked diff detected.')."\n```\n"
             ."## Modified files\n```\n{$files}\n```\n"
             ."## Review artifact\n{$review}\n\n"
+            ."## Latest verification\n"
+            .'- Status: '.($task->last_verification_status ?? 'Not recorded')."\n"
+            ."- Artifact: {$verification}\n\n"
             ."## Worktree removal\n{$removal}\n"
             .($hasWorktree && $snapshot['patch'] !== '' ? "\nTracked changes were saved to `final.patch`.\n" : "\nNo tracked diff was available for `final.patch`.\n");
     }

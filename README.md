@@ -19,6 +19,7 @@ From this project directory in PowerShell:
 .\bin\artisan.ps1 orchestrator:task-create my-app "Add task export" --description="Export task records as CSV." --acceptance="CSV download contains the selected task fields." --autonomy=medium
 .\bin\artisan.ps1 orchestrator:task-prepare 1
 .\bin\artisan.ps1 orchestrator:task-run 1
+.\bin\artisan.ps1 orchestrator:task-verify 1
 .\bin\artisan.ps1 orchestrator:task-review 1
 .\bin\artisan.ps1 orchestrator:task-open 1
 .\bin\artisan.ps1 orchestrator:task-archive 1
@@ -34,6 +35,7 @@ From this project directory in PowerShell:
 | `orchestrator:task-create {project} {title}` | Creates a `draft` task. Options: `--description`, `--acceptance`, `--autonomy=low|medium|high`. |
 | `orchestrator:task-prepare {task}` | Creates `ai/task-{id}-{slug}` and a sibling worktree `{repo}-task-{id}`. Saves `prompt.md`. It refuses existing worktree paths. |
 | `orchestrator:task-run {task}` | Regenerates the prompt and invokes `opencode run --dir <worktree> <prompt>` when available. No commit or push is performed. |
+| `orchestrator:task-verify {task}` | Runs configured project test and lint commands with PowerShell in the task worktree, or the project repository when no worktree exists. Use `--test` or `--lint` to run one command only. The command never changes Git state. |
 | `orchestrator:task-review {task}` | Captures current Git status, diff stat, modified files, and `TASK_SUMMARY.md` if the agent wrote it. |
 | `orchestrator:task-archive {task}` | Saves the task's final Git status, diff stat, changed-file list, latest commit, and tracked patch before marking it archived. `--remove-worktree` safely removes the Git worktree only after those artifacts are saved. |
 | `orchestrator:task-status {task?}` | Lists task statuses, branches, and worktree paths. |
@@ -46,6 +48,7 @@ Each task's local artifacts are stored under `storage/app/private/orchestrator/t
 
 - `prompt.md`: structured OpenCode task prompt, including rules and safety constraints.
 - `run.log`: OpenCode output or the missing-CLI explanation.
+- `verification.md`: test and lint commands, output, exit codes, durations, directories, and timestamps. The latest result is linked from reviews and retained in archives and weekly reports.
 - `review.md`: Git status, diff stat, modified files, and the agent summary.
 - `archive.md`: final task metadata and Git snapshot retained for history.
 - `final.patch`: tracked final diff when one exists.
@@ -63,5 +66,4 @@ Prepare multiple task IDs. Every task has its own branch and sibling worktree, s
 ## Limits of this MVP
 
 - It assumes the configured default branch exists locally; it does not fetch remotes.
-- Test and lint commands are recorded with the project for prompt context, but are not automatically executed by the orchestrator yet.
 - The dashboard is intentionally deferred: this first slice is CLI-first.

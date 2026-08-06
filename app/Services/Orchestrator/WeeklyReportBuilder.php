@@ -51,7 +51,9 @@ class WeeklyReportBuilder
         return $tasks->groupBy(fn (OrchestratorTask $task) => $task->project->name)
             ->map(function (Collection $projectTasks, string $project): string {
                 $items = $projectTasks->map(function (OrchestratorTask $task): string {
-                    return "- [{$task->status}] #{$task->id} {$task->title} (".$this->taskDate($task)->toDateString().')';
+                    $verification = $task->last_verification_status === null ? '' : "; verification: {$task->last_verification_status}";
+
+                    return "- [{$task->status}] #{$task->id} {$task->title} (".$this->taskDate($task)->toDateString()."){$verification}";
                 })->implode("\n");
 
                 return "### {$project}\n{$items}";

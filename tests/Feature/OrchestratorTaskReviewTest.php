@@ -60,6 +60,8 @@ class OrchestratorTaskReviewTest extends TestCase
             'status' => 'completed',
             'worktree_path' => $this->repo,
         ]);
+        Storage::disk('local')->put("orchestrator/tasks/{$task->id}/verification.md", 'Verification retained.');
+        $task->update(['last_verification_status' => 'passed']);
 
         $this->artisan('orchestrator:task-review', ['task' => $task->id])->assertSuccessful();
 
@@ -70,5 +72,7 @@ class OrchestratorTaskReviewTest extends TestCase
         $this->assertStringContainsString('NEW_COMMAND.md', $review);
         $this->assertStringContainsString('Untracked files:', $review);
         $this->assertStringContainsString('Fallback summary', $review);
+        $this->assertStringContainsString('Latest verification', $review);
+        $this->assertStringContainsString('Status: passed', $review);
     }
 }
