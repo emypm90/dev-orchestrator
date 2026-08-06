@@ -25,11 +25,13 @@ class OrchestratorTaskStatus extends Command
             return self::SUCCESS;
         }
 
-        $this->table(['ID', 'Project', 'Title', 'Status', 'Branch', 'Worktree'], $tasks->map(fn (OrchestratorTask $task) => [
+        $this->table(['ID', 'Project', 'Title', 'Status', 'Verification', 'Archived', 'Branch', 'Worktree'], $tasks->map(fn (OrchestratorTask $task) => [
             $task->id,
             $task->project->name,
             $task->title,
             $task->status,
+            $task->last_verification_status ?? '-',
+            $task->archived_at?->toDateTimeString() ?? '-',
             $task->branch_name ?? '-',
             $task->worktree_path ?? '-',
         ])->all());

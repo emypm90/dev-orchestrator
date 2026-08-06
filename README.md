@@ -27,6 +27,14 @@ From this project directory in PowerShell:
 .\bin\artisan.ps1 orchestrator:weekly-report --save
 ```
 
+To run independent tasks together, prepare and then run a controlled batch:
+
+```powershell
+.\bin\artisan.ps1 orchestrator:task-batch-run 2 3 4 --concurrency=2 --prepare --verify --review
+```
+
+The concurrency cap is deliberately limited to `1` through `4` (default `2`). Each task must have its own Git worktree. Review the retained batch, verification, and review artifacts before archiving any task.
+
 ## Commands
 
 | Command | Behavior |
@@ -35,6 +43,7 @@ From this project directory in PowerShell:
 | `orchestrator:task-create {project} {title}` | Creates a `draft` task. Options: `--description`, `--acceptance`, `--autonomy=low|medium|high`. |
 | `orchestrator:task-prepare {task}` | Creates `ai/task-{id}-{slug}` and a sibling worktree `{repo}-task-{id}`. Saves `prompt.md`. It refuses existing worktree paths. |
 | `orchestrator:task-run {task}` | Regenerates the prompt and invokes `opencode run --dir <worktree> <prompt>` when available. No commit or push is performed. |
+| `orchestrator:task-batch-run {tasks*}` | Runs independent `prepared`, `blocked`, or `failed` tasks with `--concurrency=1..4` (default `2`). `draft` tasks require `--prepare`; `completed` tasks are skipped with a warning; `running` and `archived` tasks are refused. Options: `--prepare`, `--verify`, `--review`. Saves a batch artifact and never archives tasks. |
 | `orchestrator:task-verify {task}` | Runs configured project test and lint commands with PowerShell in the task worktree, or the project repository when no worktree exists. Use `--test` or `--lint` to run one command only. The command never changes Git state. |
 | `orchestrator:task-review {task}` | Captures current Git status, diff stat, modified files, and `TASK_SUMMARY.md` if the agent wrote it. |
 | `orchestrator:task-archive {task}` | Saves the task's final Git status, diff stat, changed-file list, latest commit, and tracked patch before marking it archived. `--remove-worktree` safely removes the Git worktree only after those artifacts are saved. |
@@ -55,13 +64,13 @@ Each task's local artifacts are stored under `storage/app/private/orchestrator/t
 
 Archiving never deletes the database task record. `--remove-worktree` is optional and runs only after `archive.md` and any `final.patch` have been written, so Monday's history remains available after cleanup.
 
-Saved weekly reports are stored under `storage/app/private/orchestrator/reports/weekly-{date}.md`.
+Saved weekly reports are stored under `storage/app/private/orchestrator/reports/weekly-{date}.md`. Batch summaries are stored under `storage/app/private/orchestrator/batches/{timestamp}/batch.md` and include task outcomes, artifact paths, and next actions.
 
 Open the worktree folder in VS Code to review and test when the task is ready. Use GitHub Desktop only after that review; this application does not perform Git commits or pushes.
 
 ## Parallel tasks
 
-Prepare multiple task IDs. Every task has its own branch and sibling worktree, so separate OpenCode runs can work independently without sharing a working directory. Avoid creating two tasks that deliberately edit the same feature until you are ready to reconcile their changes.
+Prepare multiple task IDs. Every task has its own branch and sibling worktree, so separate OpenCode runs can work independently without sharing a working directory. `orchestrator:task-batch-run` starts no more than the selected concurrency cap at once and retains results even if one task fails. Avoid creating two tasks that deliberately edit the same feature until you are ready to reconcile their changes.
 
 ## Limits of this MVP
 

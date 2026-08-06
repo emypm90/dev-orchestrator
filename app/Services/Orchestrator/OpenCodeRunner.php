@@ -18,10 +18,24 @@ class OpenCodeRunner
 
     public function run(OrchestratorTask $task, string $promptPath): int
     {
+        $process = $this->start($task, $promptPath);
+
+        return $this->finish($task, $process);
+    }
+
+    public function start(OrchestratorTask $task, string $promptPath): Process
+    {
         $prompt = file_get_contents($promptPath);
         $process = new Process(['opencode', 'run', '--dir', $task->worktree_path, $prompt], timeout: null);
         $task->update(['status' => 'running', 'started_at' => now()]);
-        $process->run();
+        $process->start();
+
+        return $process;
+    }
+
+    public function finish(OrchestratorTask $task, Process $process): int
+    {
+        $process->wait();
 
         Storage::disk('local')->put(
             "orchestrator/tasks/{$task->id}/run.log",
