@@ -15,9 +15,9 @@ class WeeklyReportBuilder
     public function build(Collection $tasks, CarbonImmutable $since, CarbonImmutable $until): string
     {
         $sections = [
-            'Completed / archived work' => ['completed', 'archived'],
+            'Completed / approved / archived work' => ['completed', 'approved', 'archived'],
             'In progress / running / prepared' => ['in_progress', 'running', 'prepared'],
-            'Blocked / failed / needs decision' => ['blocked', 'failed', 'needs_decision'],
+            'Blocked / failed / needs decision' => ['blocked', 'failed', 'needs_decision', 'rejected', 'needs_revision'],
             'Planned / draft' => ['planned', 'draft'],
         ];
 
@@ -52,8 +52,9 @@ class WeeklyReportBuilder
             ->map(function (Collection $projectTasks, string $project): string {
                 $items = $projectTasks->map(function (OrchestratorTask $task): string {
                     $verification = $task->last_verification_status === null ? '' : "; verification: {$task->last_verification_status}";
+                    $decision = $task->review_decision === null ? '' : "; review: {$task->review_decision}";
 
-                    return "- [{$task->status}] #{$task->id} {$task->title} (".$this->taskDate($task)->toDateString()."){$verification}";
+                    return "- [{$task->status}] #{$task->id} {$task->title} (".$this->taskDate($task)->toDateString()."){$verification}{$decision}";
                 })->implode("\n");
 
                 return "### {$project}\n{$items}";
@@ -65,7 +66,7 @@ class WeeklyReportBuilder
      */
     private function suggestedFocus(Collection $tasks): string
     {
-        $blocked = $tasks->whereIn('status', ['blocked', 'failed', 'needs_decision']);
+        $blocked = $tasks->whereIn('status', ['blocked', 'failed', 'needs_decision', 'rejected', 'needs_revision']);
         if ($blocked->isNotEmpty()) {
             return 'Resolve blockers or decisions for: '.$blocked->map(fn (OrchestratorTask $task) => "#{$task->id}")->implode(', ').".\n";
         }
@@ -80,7 +81,7 @@ class WeeklyReportBuilder
             return 'Prepare the next planned tasks: '.$planned->map(fn (OrchestratorTask $task) => "#{$task->id}")->implode(', ').".\n";
         }
 
-        $completed = $tasks->whereIn('status', ['completed', 'archived']);
+        $completed = $tasks->whereIn('status', ['completed', 'approved', 'archived']);
         if ($completed->isNotEmpty()) {
             return "Review completed work, capture weekly learnings, and choose the next priorities.\n";
         }

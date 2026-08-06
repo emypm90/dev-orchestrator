@@ -123,6 +123,8 @@ class TaskArchiver
     {
         $reviewPath = "orchestrator/tasks/{$task->id}/review.md";
         $review = Storage::disk('local')->exists($reviewPath) ? Storage::disk('local')->path($reviewPath) : 'No review artifact found.';
+        $decisionPath = "orchestrator/tasks/{$task->id}/decision.md";
+        $decision = Storage::disk('local')->exists($decisionPath) ? Storage::disk('local')->path($decisionPath) : 'No decision artifact found.';
         $verificationPath = "orchestrator/tasks/{$task->id}/verification.md";
         $verification = Storage::disk('local')->exists($verificationPath)
             ? Storage::disk('local')->path($verificationPath)
@@ -147,6 +149,11 @@ class TaskArchiver
             ."## Diff stat\n```\n".($snapshot['diff_stat'] ?: 'No tracked diff detected.')."\n```\n"
             ."## Modified files\n```\n{$files}\n```\n"
             ."## Review artifact\n{$review}\n\n"
+            ."## Review decision\n"
+            .'- Decision: '.($task->review_decision ?? 'Not recorded')."\n"
+            .'- Reviewed: '.($task->reviewed_at?->toDateTimeString() ?? 'Not recorded')."\n"
+            .'- Notes: '.($task->review_notes ?? 'Not recorded')."\n"
+            ."- Artifact: {$decision}\n\n"
             ."## Latest verification\n"
             .'- Status: '.($task->last_verification_status ?? 'Not recorded')."\n"
             ."- Artifact: {$verification}\n\n"

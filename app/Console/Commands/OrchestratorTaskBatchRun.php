@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\OrchestratorTask;
 use App\Services\Orchestrator\BatchTaskRunner;
 use App\Services\Orchestrator\PromptBuilder;
+use App\Services\Orchestrator\TaskConflictDetector;
 use App\Services\Orchestrator\WorktreeService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +17,7 @@ class OrchestratorTaskBatchRun extends Command
 
     protected $description = 'Run independent prepared tasks with a controlled OpenCode concurrency limit';
 
-    public function handle(WorktreeService $worktrees, PromptBuilder $prompts, BatchTaskRunner $runner): int
+    public function handle(WorktreeService $worktrees, PromptBuilder $prompts, BatchTaskRunner $runner, TaskConflictDetector $conflicts): int
     {
         $concurrency = filter_var($this->option('concurrency'), FILTER_VALIDATE_INT);
         if ($concurrency === false || $concurrency < 1 || $concurrency > 4) {
@@ -89,7 +90,14 @@ class OrchestratorTaskBatchRun extends Command
 
         $startedAt = now();
         $results = $runner->run($jobs, $concurrency, $this->option('verify'), $this->option('review'));
-        $path = $this->saveArtifact($taskIds, $concurrency, $startedAt, now(), $results);
+        $path = $this->saveArtifact(
+            $taskIds,
+            $concurrency,
+            $startedAt,
+            now(),
+            $results,
+            $conflicts->detect(array_column($jobs, 'task')),
+        );
         $failed = collect($results)->contains(fn (array $result): bool => $result['status'] !== 'completed');
 
         $this->line("Batch artifact: {$path}");
@@ -107,8 +115,9 @@ class OrchestratorTaskBatchRun extends Command
     /**
      * @param  array<int, int>  $taskIds
      * @param  array<int, array{status: string, exit_code: ?int, prompt_path: string, run_path: string, verification_path: ?string, review_path: ?string, next_action: string}>  $results
+     * @param  array<string, array<int, int>>  $conflicts
      */
-    private function saveArtifact(array $taskIds, int $concurrency, $startedAt, $finishedAt, array $results): string
+    private function saveArtifact(array $taskIds, int $concurrency, $startedAt, $finishedAt, array $results, array $conflicts): string
     {
         $path = 'orchestrator/batches/'.$startedAt->format('Ymd-His-u').'/batch.md';
         $markdown = "# Task Batch Run\n\n"
@@ -121,6 +130,15 @@ class OrchestratorTaskBatchRun extends Command
 
         foreach ($results as $taskId => $result) {
             $markdown .= "| {$taskId} | {$result['status']} | ".($result['exit_code'] ?? '-')." | {$result['prompt_path']} | {$result['run_path']} | ".($result['verification_path'] ?? '-')." | ".($result['review_path'] ?? '-')." | {$result['next_action']} |\n";
+        }
+
+        $markdown .= "\n## Potential file conflicts\n";
+        if ($conflicts === []) {
+            $markdown .= "No conflicts detected.\n";
+        } else {
+            foreach ($conflicts as $file => $taskIds) {
+                $markdown .= "- `{$file}`: tasks ".implode(', ', array_map(fn (int $taskId): string => "#{$taskId}", $taskIds))."\n";
+            }
         }
 
         Storage::disk('local')->put($path, $markdown);

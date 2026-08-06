@@ -8,6 +8,7 @@ use App\Services\Orchestrator\OpenCodeRunner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class OrchestratorTaskBatchRunTest extends TestCase
@@ -87,6 +88,28 @@ class OrchestratorTaskBatchRunTest extends TestCase
         $this->assertSame('blocked', $second->refresh()->status);
     }
 
+    public function test_it_reports_overlapping_changed_files_in_the_batch_artifact(): void
+    {
+        Storage::fake('local');
+        $first = $this->gitTask('README.md');
+        $second = $this->gitTask('README.md');
+        app()->instance(OpenCodeRunner::class, new class extends OpenCodeRunner
+        {
+            public function isAvailable(): bool
+            {
+                return false;
+            }
+        });
+
+        $this->artisan('orchestrator:task-batch-run', [
+            'tasks' => [$first->id, $second->id],
+        ])->assertFailed();
+
+        $batch = Storage::disk('local')->get(Storage::disk('local')->allFiles('orchestrator/batches')[0]);
+        $this->assertStringContainsString('## Potential file conflicts', $batch);
+        $this->assertStringContainsString("- `README.md`: tasks #{$first->id}, #{$second->id}", $batch);
+    }
+
     private function task(string $status): OrchestratorTask
     {
         $project = OrchestratorProject::create([
@@ -102,6 +125,36 @@ class OrchestratorTaskBatchRunTest extends TestCase
             'title' => 'Batch task',
             'status' => $status,
             'worktree_path' => $status === 'draft' ? null : $worktree,
+        ]);
+    }
+
+    private function gitTask(string $changedFile): OrchestratorTask
+    {
+        $worktree = $this->root.DIRECTORY_SEPARATOR.'worktree-'.uniqid();
+        File::ensureDirectoryExists($worktree);
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.$changedFile, "Initial\n");
+        foreach ([
+            ['git', 'init', '-b', 'main', $worktree],
+            ['git', '-C', $worktree, 'config', 'user.email', 'test@example.com'],
+            ['git', '-C', $worktree, 'config', 'user.name', 'Test User'],
+            ['git', '-C', $worktree, 'add', $changedFile],
+            ['git', '-C', $worktree, 'commit', '-m', 'Initial commit'],
+        ] as $command) {
+            (new Process($command))->mustRun();
+        }
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.$changedFile, "Changed\n");
+
+        $project = OrchestratorProject::create([
+            'name' => 'project-'.uniqid(),
+            'repo_path' => $worktree,
+            'default_branch' => 'main',
+        ]);
+
+        return OrchestratorTask::create([
+            'project_id' => $project->id,
+            'title' => 'Batch conflict task',
+            'status' => 'prepared',
+            'worktree_path' => $worktree,
         ]);
     }
 }
