@@ -21,6 +21,8 @@ From this project directory in PowerShell:
 .\bin\artisan.ps1 orchestrator:task-run 1
 .\bin\artisan.ps1 orchestrator:task-verify 1
 .\bin\artisan.ps1 orchestrator:task-review 1
+.\bin\artisan.ps1 orchestrator:task-revision 1 --reason="Create the requested documentation file."
+.\bin\artisan.ps1 orchestrator:task-rerun 1 --instructions="Create the requested files; do not edit README instead." --verify --review
 .\bin\artisan.ps1 orchestrator:task-approve 1 --notes="Verified the requested files and checks."
 .\bin\artisan.ps1 orchestrator:task-open 1
 .\bin\artisan.ps1 orchestrator:task-archive 1
@@ -52,6 +54,7 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 | `orchestrator:task-approve {task}` | Records the human decision as `approved` and changes task status to `approved`. Option: `--notes`. It never commits, pushes, or merges. |
 | `orchestrator:task-reject {task}` | Records the human decision as `rejected` and changes task status to `rejected`. Option: `--reason`. It never commits, pushes, or merges. |
 | `orchestrator:task-revision {task}` | Records the human decision as `needs_revision` and changes task status to `needs_revision`. Option: `--reason`. It never commits, pushes, or merges. |
+| `orchestrator:task-rerun {task}` | Reruns a `needs_revision`, `failed`, or `blocked` task in its existing worktree. Options: `--instructions`, `--verify`, `--review`. It clears the previous human decision because a new review is required; it refuses `completed`, `running`, `approved`, and `archived` tasks. |
 | `orchestrator:task-archive {task}` | Saves the task's final Git status, diff stat, changed-file list, latest commit, and tracked patch before marking it archived. `--remove-worktree` safely removes the Git worktree only after those artifacts are saved. |
 | `orchestrator:task-status {task?}` | Lists task statuses, branches, and worktree paths. |
 | `orchestrator:task-open {task}` | Opens the task worktree in VS Code. |
@@ -66,6 +69,8 @@ Each task's local artifacts are stored under `storage/app/private/orchestrator/t
 - `verification.md`: test and lint commands, output, exit codes, durations, directories, and timestamps. The latest result is linked from reviews and retained in archives and weekly reports.
 - `review.md`: Git status, diff stat, modified files, and the agent summary.
 - `decision.md`: the human approval, rejection, or revision request with notes, review link, verification status, and worktree location.
+- `revision-{n}.md`: the rerun prompt with the original task, latest decision, review and verification references, and additional instructions.
+- `rerun.md`: an append-only log of revision attempts, previous decisions, exit statuses, artifact paths, and next actions.
 - `archive.md`: final task metadata and Git snapshot retained for history.
 - `final.patch`: tracked final diff when one exists.
 
@@ -74,6 +79,16 @@ Archiving never deletes the database task record. `--remove-worktree` is optiona
 Saved weekly reports are stored under `storage/app/private/orchestrator/reports/weekly-{date}.md`. Batch summaries are stored under `storage/app/private/orchestrator/batches/{timestamp}/batch.md` and include task outcomes, artifact paths, next actions, and potential overlapping file changes.
 
 Open the worktree folder in VS Code to review and test when the task is ready. Use GitHub Desktop only after that review; this application does not perform Git commits or pushes.
+
+## Revision loop
+
+When human review finds a correctable issue, follow this loop:
+
+```text
+revision -> rerun -> verify/review -> approve/reject/revision
+```
+
+`orchestrator:task-revision` records the feedback. `orchestrator:task-rerun` uses the same worktree, retains good changes, and clears the old decision so the rerun cannot be accepted without a new human review. A `completed` rerun means OpenCode finished; it does not mean the work was accepted.
 
 ## Parallel tasks
 

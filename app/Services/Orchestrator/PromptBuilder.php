@@ -48,6 +48,46 @@ PROMPT;
         return Storage::disk('local')->path($path);
     }
 
+    public function saveRevision(OrchestratorTask $task, int $attempt, ?string $instructions): string
+    {
+        $path = $this->artifactPath($task, "revision-{$attempt}.md");
+        Storage::disk('local')->put($path, $this->buildRevision($task, $instructions));
+
+        return Storage::disk('local')->path($path);
+    }
+
+    private function buildRevision(OrchestratorTask $task, ?string $instructions): string
+    {
+        $decision = $this->artifactContent($task, 'decision.md') ?? 'No decision artifact found.';
+        $reviewPath = $this->artifactLocation($task, 'review.md');
+        $verificationPath = $this->artifactLocation($task, 'verification.md');
+
+        return $this->build($task)."\n\n## Revision context\n"
+            ."The task is being rerun to address prior review feedback. Preserve good existing work and correct only what is needed to satisfy every acceptance criterion.\n\n"
+            ."## Latest decision\n{$decision}\n"
+            ."## Latest review\n- Status: ".($reviewPath === null ? 'Not available.' : 'Available.')."\n- Artifact: ".($reviewPath ?? 'Not available.')."\n"
+            ."## Latest verification\n- Status: ".($task->last_verification_status ?? 'Not recorded')."\n- Artifact: ".($verificationPath ?? 'Not available.')."\n"
+            ."## Additional revision instructions\n".(filled($instructions) ? $instructions : 'None provided.')."\n\n"
+            ."## Revision safety constraints\n"
+            ."- Work only in the current task worktree; do not create or switch worktrees.\n"
+            ."- Do not commit, stage, push, rebase, reset, or modify Git configuration.\n"
+            ."- Preserve correct existing work and satisfy the original acceptance criteria before finishing.\n";
+    }
+
+    private function artifactContent(OrchestratorTask $task, string $file): ?string
+    {
+        $path = $this->artifactPath($task, $file);
+
+        return Storage::disk('local')->exists($path) ? Storage::disk('local')->get($path) : null;
+    }
+
+    private function artifactLocation(OrchestratorTask $task, string $file): ?string
+    {
+        $path = $this->artifactPath($task, $file);
+
+        return Storage::disk('local')->exists($path) ? Storage::disk('local')->path($path) : null;
+    }
+
     public function artifactPath(OrchestratorTask $task, string $file): string
     {
         return "orchestrator/tasks/{$task->id}/{$file}";
