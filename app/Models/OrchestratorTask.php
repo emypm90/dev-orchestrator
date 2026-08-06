@@ -12,6 +12,7 @@ class OrchestratorTask extends Model
     protected $fillable = [
         'project_id', 'title', 'description', 'acceptance_criteria', 'autonomy', 'status',
         'branch_name', 'worktree_path', 'last_exit_code', 'prepared_at', 'started_at', 'finished_at',
+        'archived_at', 'archive_path', 'worktree_removed_at', 'latest_commit_hash',
     ];
 
     protected function casts(): array
@@ -20,6 +21,8 @@ class OrchestratorTask extends Model
             'prepared_at' => 'datetime',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
+            'archived_at' => 'datetime',
+            'worktree_removed_at' => 'datetime',
         ];
     }
 
