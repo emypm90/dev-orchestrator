@@ -20,11 +20,11 @@ class TaskReviewDecisionWebTest extends TestCase
         $response = $this->post(route('tasks.approve', $task));
 
         $response->assertRedirect(route('tasks.show', $task));
-        $response->assertSessionHas('success', "Task {$task->id} approved. Decision recorded.");
+        $response->assertSessionHas('success', "La tarea {$task->id} fue aprobada. Decisión registrada.");
         $task->refresh();
         $this->assertSame('approved', $task->status);
         $this->assertSame('approved', $task->review_decision);
-        $this->assertSame('No notes provided.', $task->review_notes);
+        $this->assertSame('No se proporcionaron notas.', $task->review_notes);
         Storage::disk('local')->assertExists("orchestrator/tasks/{$task->id}/decision.md");
 
         $this->get(route('tasks.show', $task))
@@ -67,7 +67,9 @@ class TaskReviewDecisionWebTest extends TestCase
         $this->from(route('tasks.show', $task))
             ->post(route('tasks.revision', $task), ['reason' => str_repeat('a', 2001)])
             ->assertRedirect(route('tasks.show', $task))
-            ->assertSessionHasErrors('reason');
+            ->assertSessionHasErrors([
+                'reason' => 'El motivo no puede superar los 2000 caracteres.',
+            ]);
 
         $task->refresh();
         $this->assertSame('completed', $task->status);

@@ -16,8 +16,8 @@ class TaskDashboardTest extends TestCase
     {
         $this->get('/')
             ->assertOk()
-            ->assertSee('Command center')
-            ->assertSee('Review decisions are recorded locally and never change Git state.')
+            ->assertSee('Centro de control')
+            ->assertSee('Las decisiones de revisión se registran localmente y nunca modifican el estado de Git.')
             ->assertDontSee('Let\'s get started');
     }
 
@@ -34,11 +34,11 @@ class TaskDashboardTest extends TestCase
 
         $this->get('/?attention=1')
             ->assertOk()
-            ->assertSee('Attention queue')
-            ->assertSee('human review')
+            ->assertSee('Cola de atención')
+            ->assertSee('revisión humana')
             ->assertSee('Review release notes')
             ->assertSee(route('tasks.show', $task))
-            ->assertSee('Review artifacts, then approve, reject, or request revision.');
+            ->assertSee('Revisá los artefactos; después aprobá, rechazá o pedí una revisión.');
     }
 
     public function test_task_detail_shows_metadata_and_acceptance_expectations(): void
@@ -67,12 +67,15 @@ class TaskDashboardTest extends TestCase
             ->assertSee('Document the dashboard')
             ->assertSee('C:\\worktrees\\task-1')
             ->assertSee('Add the quick start steps.')
-            ->assertSee('Expected files (1)')
-            ->assertSee('Forbidden files (1)')
-            ->assertSee('Expected texts (1)')
-            ->assertSee('Expected regexes (1)')
+            ->assertSee('Requiere revisión')
+            ->assertSee('Superada')
+            ->assertSee('Fallida')
+            ->assertSee('Archivos esperados (1)')
+            ->assertSee('Archivos prohibidos (1)')
+            ->assertSee('Textos esperados (1)')
+            ->assertSee('Expresiones regulares esperadas (1)')
             ->assertSee('docs/dashboard.md')
-            ->assertSee('Fix acceptance failure, then rerun.');
+            ->assertSee('Corregí la falla de aceptación y volvé a ejecutar.');
     }
 
     public function test_task_detail_shows_safe_review_decision_forms(): void
@@ -85,8 +88,8 @@ class TaskDashboardTest extends TestCase
 
         $this->get(route('tasks.show', $task))
             ->assertOk()
-            ->assertSee('Review decision')
-            ->assertSee('These actions record a human decision only. They do not run, archive, or change Git state.')
+            ->assertSee('Registrar una decisión de revisión')
+            ->assertSee('Estas acciones solo registran una decisión humana. No ejecutan, archivan ni modifican el estado de Git.')
             ->assertSee(route('tasks.approve', $task))
             ->assertSee(route('tasks.revision', $task))
             ->assertSee(route('tasks.reject', $task))
@@ -109,7 +112,7 @@ class TaskDashboardTest extends TestCase
             ->assertOk()
             ->assertSee(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'prompt.md']))
             ->assertSee(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'revision-2.md']))
-            ->assertSee('run.log (not available)');
+            ->assertSee('run.log (no disponible)');
     }
 
     public function test_allowed_artifact_renders_escaped_read_only_content(): void
@@ -124,7 +127,7 @@ class TaskDashboardTest extends TestCase
 
         $this->get(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'prompt.md']))
             ->assertOk()
-            ->assertSee('READ-ONLY CONTENT')
+            ->assertSee('CONTENIDO DE SOLO LECTURA')
             ->assertSee('&lt;script&gt;alert(&quot;unsafe&quot;)&lt;/script&gt;', false);
     }
 

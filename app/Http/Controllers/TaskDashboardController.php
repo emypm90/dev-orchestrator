@@ -52,12 +52,12 @@ class TaskDashboardController extends Controller
             'projects' => OrchestratorProject::orderBy('name')->get(),
             'statusCounts' => $tasks->countBy('status')->sortKeys(),
             'attentionCounts' => [
-                'human review' => $tasks->filter(fn (OrchestratorTask $task) => $presenter->needsHumanReview($task))->count(),
-                'failed verification' => $tasks->where('last_verification_status', 'failed')->count(),
-                'failed acceptance' => $tasks->where('last_acceptance_status', 'failed')->count(),
-                'needs revision' => $tasks->where('status', 'needs_revision')->count(),
-                'running' => $tasks->where('status', 'running')->count(),
-                'blocked' => $tasks->where('status', 'blocked')->count(),
+                'revisión humana' => $tasks->filter(fn (OrchestratorTask $task) => $presenter->needsHumanReview($task))->count(),
+                'verificación fallida' => $tasks->where('last_verification_status', 'failed')->count(),
+                'aceptación fallida' => $tasks->where('last_acceptance_status', 'failed')->count(),
+                'requiere revisión' => $tasks->where('status', 'needs_revision')->count(),
+                'en ejecución' => $tasks->where('status', 'running')->count(),
+                'bloqueada' => $tasks->where('status', 'blocked')->count(),
             ],
             'presenter' => $presenter,
         ]);
@@ -88,35 +88,35 @@ class TaskDashboardController extends Controller
 
     public function approve(Request $request, OrchestratorTask $task, ReviewDecisionRecorder $decisions)
     {
-        $validated = $request->validate([
-            'notes' => ['nullable', 'string', 'max:2000'],
+        $validated = $request->validate(['notes' => ['nullable', 'string', 'max:2000']], [
+            'notes.max' => 'Las notas no pueden superar los :max caracteres.',
         ]);
 
-        $decisions->record($task->loadMissing('project'), 'approved', ($validated['notes'] ?? null) ?: 'No notes provided.');
+        $decisions->record($task->loadMissing('project'), 'approved', ($validated['notes'] ?? null) ?: 'No se proporcionaron notas.');
 
-        return redirect()->route('tasks.show', $task)->with('success', "Task {$task->id} approved. Decision recorded.");
+        return redirect()->route('tasks.show', $task)->with('success', "La tarea {$task->id} fue aprobada. Decisión registrada.");
     }
 
     public function revision(Request $request, OrchestratorTask $task, ReviewDecisionRecorder $decisions)
     {
-        $validated = $request->validate([
-            'reason' => ['nullable', 'string', 'max:2000'],
+        $validated = $request->validate(['reason' => ['nullable', 'string', 'max:2000']], [
+            'reason.max' => 'El motivo no puede superar los :max caracteres.',
         ]);
 
-        $decisions->record($task->loadMissing('project'), 'needs_revision', ($validated['reason'] ?? null) ?: 'No reason provided.');
+        $decisions->record($task->loadMissing('project'), 'needs_revision', ($validated['reason'] ?? null) ?: 'No se proporcionó un motivo.');
 
-        return redirect()->route('tasks.show', $task)->with('success', "Task {$task->id} marked as needing revision. Decision recorded.");
+        return redirect()->route('tasks.show', $task)->with('success', "La tarea {$task->id} requiere revisión. Decisión registrada.");
     }
 
     public function reject(Request $request, OrchestratorTask $task, ReviewDecisionRecorder $decisions)
     {
-        $validated = $request->validate([
-            'reason' => ['nullable', 'string', 'max:2000'],
+        $validated = $request->validate(['reason' => ['nullable', 'string', 'max:2000']], [
+            'reason.max' => 'El motivo no puede superar los :max caracteres.',
         ]);
 
-        $decisions->record($task->loadMissing('project'), 'rejected', ($validated['reason'] ?? null) ?: 'No reason provided.');
+        $decisions->record($task->loadMissing('project'), 'rejected', ($validated['reason'] ?? null) ?: 'No se proporcionó un motivo.');
 
-        return redirect()->route('tasks.show', $task)->with('success', "Task {$task->id} rejected. Decision recorded.");
+        return redirect()->route('tasks.show', $task)->with('success', "La tarea {$task->id} fue rechazada. Decisión registrada.");
     }
 
     public function showArtifact(OrchestratorTask $task, string $artifact)

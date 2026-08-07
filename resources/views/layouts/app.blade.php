@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -131,18 +131,18 @@
             <div class="brand">
                 <div class="brand-mark">&gt;_</div>
                 <div>
-                    <p class="eyebrow">Local development orchestrator</p>
-                    <h1><a href="{{ route('tasks.index') }}">{{ $heading ?? 'Task dashboard' }}</a></h1>
+                    <p class="eyebrow">Orquestador de desarrollo local</p>
+                    <h1><a href="{{ route('tasks.index') }}">{{ $heading ?? 'Panel de tareas' }}</a></h1>
                 </div>
             </div>
-            <p class="safety-notice"><span class="safety-icon">&#9672;</span><span><strong>Local MVP.</strong> Review decisions are recorded locally and never change Git state.</span></p>
+            <p class="safety-notice"><span class="safety-icon">&#9672;</span><span><strong>MVP local.</strong> Las decisiones de revisión se registran localmente y nunca modifican el estado de Git.</span></p>
         </header>
         @if (session('success'))
-            <div class="flash"><strong>Decision recorded</strong><span>{{ session('success') }}</span></div>
+            <div class="flash"><strong>Decisión registrada</strong><span>{{ session('success') }}</span></div>
         @endif
         @if ($errors->any())
             <div class="errors">
-                <strong>Review decision was not recorded.</strong>
+                <strong>No se registró la decisión de revisión.</strong>
                 <div>@foreach ($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>
             </div>
         @endif
