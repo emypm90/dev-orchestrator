@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\OrchestratorTask;
+use App\Services\Orchestrator\TaskStatusPresenter;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -10,6 +11,11 @@ use Illuminate\Support\Str;
 
 class OrchestratorTaskStatus extends Command
 {
+    public function __construct(private readonly TaskStatusPresenter $presenter)
+    {
+        parent::__construct();
+    }
+
     protected $signature = 'orchestrator:task-status
                             {task? : Optional task ID}
                             {--project= : Filter by project name}
@@ -83,7 +89,7 @@ class OrchestratorTaskStatus extends Command
         $this->info('Task dashboard');
         $this->line('Tasks: '.$tasks->count().' | Showing: '.$shown->count());
         $this->line('By status: '.$tasks->countBy('status')->sortKeys()->map(fn (int $count, string $status) => "{$status} {$count}")->implode(', '));
-        $this->line('Attention: human review '.$tasks->filter(fn (OrchestratorTask $task) => $this->needsHumanReview($task))->count()
+        $this->line('Attention: human review '.$tasks->filter(fn (OrchestratorTask $task) => $this->presenter->needsHumanReview($task))->count()
             .' | failed verification '.$tasks->where('last_verification_status', 'failed')->count()
             .' | failed acceptance '.$tasks->where('last_acceptance_status', 'failed')->count()
             .' | needs revision '.$tasks->where('status', 'needs_revision')->count()
@@ -100,7 +106,7 @@ class OrchestratorTaskStatus extends Command
             $task->last_verification_status ?? '-',
             $task->last_acceptance_status ?? '-',
             $task->updated_at->diffForHumans(),
-            $this->nextAction($task),
+            $this->presenter->nextAction($task),
         ])->all());
     }
 
@@ -128,53 +134,8 @@ class OrchestratorTaskStatus extends Command
             ['Forbidden files', count($task->forbidden_files ?? [])],
             ['Expected texts', count($task->expected_texts ?? [])],
             ['Expected regexes', count($task->expected_regexes ?? [])],
-            ['Next action', $this->nextAction($task)],
+            ['Next action', $this->presenter->nextAction($task)],
         ]);
     }
 
-    private function needsHumanReview(OrchestratorTask $task): bool
-    {
-        return $task->status === 'completed' && $task->review_decision === null;
-    }
-
-    private function nextAction(OrchestratorTask $task): string
-    {
-        return match ($task->status) {
-            'archived' => 'No action.',
-            'approved' => 'Archive when ready.',
-            'needs_revision' => 'Rerun with the recorded revision request.',
-            'draft' => 'Prepare task.',
-            'prepared' => 'Run task.',
-            'blocked' => 'Resolve blocker, then rerun task.',
-            'failed' => 'Review run log, then rerun task.',
-            'running' => 'Wait or check run log.',
-            'completed' => $this->completedNextAction($task),
-            default => 'Check task status and artifacts.',
-        };
-    }
-
-    private function completedNextAction(OrchestratorTask $task): string
-    {
-        if ($task->last_verification_status === 'failed') {
-            return 'Fix verification failure, then rerun.';
-        }
-
-        if ($task->last_acceptance_status === 'failed') {
-            return 'Fix acceptance failure, then rerun.';
-        }
-
-        if ($task->last_verification_status === null) {
-            return 'Run verification before review.';
-        }
-
-        if ($task->last_acceptance_status === null) {
-            return 'Run acceptance check before review.';
-        }
-
-        if ($task->review_decision === null) {
-            return 'Review artifacts, then approve, reject, or request revision.';
-        }
-
-        return 'Review recorded decision.';
-    }
 }

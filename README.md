@@ -41,6 +41,18 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 
 `completed` means the agent execution finished. It does not mean a human accepted the work. Review the artifacts, then explicitly approve, reject, or request revision before archiving or integrating changes elsewhere.
 
+## Web dashboard
+
+The local web dashboard is read-only: it shows task status and attention counts, a compact task list, task details, artifact paths, and configured acceptance expectations. It does not approve, reject, archive, or run tasks.
+
+Start Laravel from this project directory, then open `http://127.0.0.1:8000`:
+
+```powershell
+.\bin\artisan.ps1 serve
+```
+
+Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. Use the CLI commands for all task actions.
+
 ## Commands
 
 | Command | Behavior |
@@ -133,4 +145,4 @@ Prepare multiple task IDs. Every task has its own branch and sibling worktree, s
 ## Limits of this MVP
 
 - It assumes the configured default branch exists locally; it does not fetch remotes.
-- The dashboard is CLI-first and does not replace human review of artifacts.
+- The dashboard is read-only and does not replace human review of artifacts.

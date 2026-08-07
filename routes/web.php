@@ -1,7 +1,7 @@
 <?php
 
+use App\Http\Controllers\TaskDashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [TaskDashboardController::class, 'index'])->name('tasks.index');
+Route::get('/tasks/{task}', [TaskDashboardController::class, 'show'])->name('tasks.show');
