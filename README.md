@@ -41,17 +41,40 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 
 `completed` means the agent execution finished. It does not mean a human accepted the work. Review the artifacts, then explicitly approve, reject, or request revision before archiving or integrating changes elsewhere.
 
-## Web dashboard
+## Running the local environment
 
-The local web dashboard is read-only: it shows task status and attention counts, a compact task list, task details, artifact paths, and configured acceptance expectations. It does not approve, reject, archive, or run tasks.
+Use the smallest command that matches what you need. The web dashboard is read-only: it shows task status and attention counts, a compact task list, task details, artifact paths, and configured acceptance expectations. It does not approve, reject, archive, or run tasks.
 
-Start Laravel from this project directory, then open `http://127.0.0.1:8000`:
+### Dashboard only
+
+Use this when you only want to open the current read-only dashboard. It starts the Laravel HTTP server and nothing else:
 
 ```powershell
 .\bin\artisan.ps1 serve
 ```
 
-Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. Use the CLI commands for all task actions.
+Then open `http://127.0.0.1:8000`.
+
+This is enough for the current dashboard because the Blade views use server-rendered HTML and do not require a frontend dev server.
+
+### Full development environment
+
+Use this when you are actively developing the app and want Laravel, queues, logs, and Vite running together:
+
+```powershell
+composer dev
+```
+
+That Composer script starts:
+
+| Process | Purpose |
+| --- | --- |
+| `php artisan serve` | Serves the Laravel app at `http://127.0.0.1:8000`. |
+| `php artisan queue:listen --tries=1 --timeout=0` | Runs queued jobs while developing. |
+| `php artisan pail --timeout=0` | Streams Laravel logs in the terminal. |
+| `npm run dev` | Starts Vite for frontend assets and hot reload. |
+
+Rule of thumb: use `.\bin\artisan.ps1 serve` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. Use the CLI commands for all task actions.
 
 ## Commands
 
