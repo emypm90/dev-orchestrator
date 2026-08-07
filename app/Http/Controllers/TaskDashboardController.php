@@ -119,8 +119,10 @@ class TaskDashboardController extends Controller
         return redirect()->route('tasks.show', $task)->with('success', "La tarea {$task->id} fue rechazada. Decisión registrada.");
     }
 
-    public function showArtifact(OrchestratorTask $task, string $artifact)
+    public function showArtifact(Request $request, OrchestratorTask $task)
     {
+        $artifact = $request->string('name')->toString();
+
         abort_unless($this->isAllowedArtifact($artifact), 404);
 
         $path = "orchestrator/tasks/{$task->id}/{$artifact}";

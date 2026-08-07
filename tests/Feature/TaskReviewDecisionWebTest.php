@@ -29,7 +29,7 @@ class TaskReviewDecisionWebTest extends TestCase
 
         $this->get(route('tasks.show', $task))
             ->assertOk()
-            ->assertSee(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'decision.md']));
+            ->assertSee(route('tasks.artifacts.show', ['task' => $task, 'name' => 'decision.md']));
     }
 
     public function test_revision_records_the_reason(): void

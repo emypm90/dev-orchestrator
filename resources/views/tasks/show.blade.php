@@ -35,14 +35,18 @@
         <div class="panel-header"><div><h2>Resumen para decidir</h2><p class="panel-copy">Lo necesario para decidir antes de entrar al detalle técnico.</p></div></div>
         <div class="decision-summary">
             <section class="summary-card summary-objective">
-                <span class="section-kicker">Objetivo de la tarea</span>
+                <span class="section-kicker">Objetivo original cargado</span>
                 <h3>{{ $task->title }}</h3>
+            </section>
+            <section class="summary-card">
+                <span class="section-kicker">Descripción original</span>
                 <p>{{ $task->description ?: 'No hay descripción cargada.' }}</p>
             </section>
             <section class="summary-card">
-                <span class="section-kicker">Criterios de aceptación</span>
+                <span class="section-kicker">Criterios cargados</span>
                 <p>{{ $task->acceptance_criteria ?: 'No hay criterios cargados.' }}</p>
             </section>
+            <p class="panel-copy">Este contenido viene de la tarea original; si está en inglés, fue cargado así.</p>
             <section class="summary-card summary-attention">
                 <span class="section-kicker">Resultado actual</span>
                 <h3>{{ $requiresAttention ? 'Por qué requiere atención' : 'Estado de la decisión' }}</h3>
@@ -50,7 +54,7 @@
                     @if ($task->last_verification_status === 'failed')
                         <p>La verificación falló. Revisá
                             @if ($verificationArtifact['exists'])
-                                <a href="{{ route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'verification.md']) }}">verification.md</a>
+                                <a href="{{ route('tasks.artifacts.show', ['task' => $task, 'name' => 'verification.md']) }}">verification.md</a>
                             @else
                                 <span class="mono">verification.md (no disponible)</span>
                             @endif
@@ -60,7 +64,7 @@
                     @if ($task->last_acceptance_status === 'failed')
                         <p>La comprobación de aceptación falló. Revisá
                             @if ($acceptanceArtifact['exists'])
-                                <a href="{{ route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'acceptance.md']) }}">acceptance.md</a>
+                                <a href="{{ route('tasks.artifacts.show', ['task' => $task, 'name' => 'acceptance.md']) }}">acceptance.md</a>
                             @else
                                 <span class="mono">acceptance.md (no disponible)</span>
                             @endif
@@ -95,7 +99,7 @@
                         @php($artifact = $artifactByName->get($artifactName))
                         <li>
                             @if ($artifact['exists'])
-                                <a class="mono" href="{{ route('tasks.artifacts.show', ['task' => $task, 'artifact' => $artifactName]) }}">{{ $artifactName }}</a>
+                                <a class="mono" href="{{ route('tasks.artifacts.show', ['task' => $task, 'name' => $artifactName]) }}">{{ $artifactName }}</a>
                             @else
                                 <span class="muted mono">{{ $artifactName }} (no disponible)</span>
                             @endif
@@ -112,7 +116,7 @@
             @foreach ($artifacts as $artifact)
                 <li>
                     @if ($artifact['exists'])
-                        <a class="artifact-link mono" href="{{ route('tasks.artifacts.show', ['task' => $task, 'artifact' => $artifact['name']]) }}"><span class="artifact-icon">&#9635;</span>{{ $artifact['name'] }}</a>
+                        <a class="artifact-link mono" href="{{ route('tasks.artifacts.show', ['task' => $task, 'name' => $artifact['name']]) }}"><span class="artifact-icon">&#9635;</span>{{ $artifact['name'] }}</a>
                     @else
                         <span class="artifact-unavailable mono"><span>&#8211;</span>{{ $artifact['name'] }} (no disponible)</span>
                     @endif

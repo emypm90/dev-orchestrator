@@ -47,8 +47,8 @@ class TaskDashboardTest extends TestCase
         $task = OrchestratorTask::create([
             'project_id' => $project->id,
             'title' => 'Document the dashboard',
-            'description' => 'Explicar cómo usar el tablero de tareas.',
-            'acceptance_criteria' => 'Incluir pasos de inicio rápido y las restricciones de solo lectura.',
+            'description' => 'Explain how to use the task dashboard.',
+            'acceptance_criteria' => 'Include quick start steps and read-only constraints.',
             'status' => 'completed',
             'branch_name' => 'ai/task-1-document-dashboard',
             'worktree_path' => 'C:\\worktrees\\task-1',
@@ -68,8 +68,12 @@ class TaskDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('Document the dashboard')
             ->assertSee('Resumen para decidir')
-            ->assertSee('Explicar cómo usar el tablero de tareas.')
-            ->assertSee('Incluir pasos de inicio rápido y las restricciones de solo lectura.')
+            ->assertSee('Objetivo original cargado')
+            ->assertSee('Descripción original')
+            ->assertSee('Criterios cargados')
+            ->assertSee('Explain how to use the task dashboard.')
+            ->assertSee('Include quick start steps and read-only constraints.')
+            ->assertSee('Este contenido viene de la tarea original; si está en inglés, fue cargado así.')
             ->assertSee('Por qué requiere atención')
             ->assertSee('La comprobación de aceptación falló.')
             ->assertSee('C:\\worktrees\\task-1')
@@ -120,8 +124,8 @@ class TaskDashboardTest extends TestCase
 
         $this->get(route('tasks.show', $task))
             ->assertOk()
-            ->assertSee(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'prompt.md']))
-            ->assertSee(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'revision-2.md']))
+            ->assertSee(route('tasks.artifacts.show', ['task' => $task, 'name' => 'prompt.md']))
+            ->assertSee(route('tasks.artifacts.show', ['task' => $task, 'name' => 'revision-2.md']))
             ->assertSee('run.log (no disponible)');
     }
 
@@ -135,7 +139,7 @@ class TaskDashboardTest extends TestCase
         ]);
         Storage::disk('local')->put("orchestrator/tasks/{$task->id}/prompt.md", '<script>alert("unsafe")</script>');
 
-        $this->get(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'prompt.md']))
+        $this->get(route('tasks.artifacts.show', ['task' => $task, 'name' => 'prompt.md']))
             ->assertOk()
             ->assertSee('CONTENIDO DE SOLO LECTURA')
             ->assertSee('&lt;script&gt;alert(&quot;unsafe&quot;)&lt;/script&gt;', false);
@@ -149,8 +153,9 @@ class TaskDashboardTest extends TestCase
             'status' => 'completed',
         ]);
 
-        $this->get(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'unknown.md']))->assertNotFound();
-        $this->get("/tasks/{$task->id}/artifacts/prompt.md/nested")->assertNotFound();
+        $this->get(route('tasks.artifacts.show', ['task' => $task, 'name' => 'unknown.md']))->assertNotFound();
+        $this->get(route('tasks.artifacts.show', ['task' => $task, 'name' => '../.env']))->assertNotFound();
+        $this->get(route('tasks.artifacts.show', ['task' => $task, 'name' => 'prompt.md/nested']))->assertNotFound();
     }
 
     private function project(string $name): OrchestratorProject

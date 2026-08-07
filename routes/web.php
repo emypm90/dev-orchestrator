@@ -8,6 +8,5 @@ Route::get('/tasks/{task}', [TaskDashboardController::class, 'show'])->name('tas
 Route::post('/tasks/{task}/approve', [TaskDashboardController::class, 'approve'])->name('tasks.approve');
 Route::post('/tasks/{task}/revision', [TaskDashboardController::class, 'revision'])->name('tasks.revision');
 Route::post('/tasks/{task}/reject', [TaskDashboardController::class, 'reject'])->name('tasks.reject');
-Route::get('/tasks/{task}/artifacts/{artifact}', [TaskDashboardController::class, 'showArtifact'])
-    ->where('artifact', '[^/]+')
+Route::get('/tasks/{task}/artifacts', [TaskDashboardController::class, 'showArtifact'])
     ->name('tasks.artifacts.show');
