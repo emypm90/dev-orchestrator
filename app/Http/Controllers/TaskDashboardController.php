@@ -7,9 +7,22 @@ use App\Models\OrchestratorTask;
 use App\Services\Orchestrator\TaskStatusPresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class TaskDashboardController extends Controller
 {
+    private const ARTIFACT_NAMES = [
+        'prompt.md',
+        'run.log',
+        'verification.md',
+        'acceptance.md',
+        'review.md',
+        'decision.md',
+        'rerun.md',
+        'archive.md',
+        'final.patch',
+    ];
+
     public function index(Request $request, TaskStatusPresenter $presenter)
     {
         $query = OrchestratorTask::with('project')->orderByDesc('updated_at');
@@ -51,9 +64,48 @@ class TaskDashboardController extends Controller
 
     public function show(OrchestratorTask $task, TaskStatusPresenter $presenter)
     {
+        $directory = "orchestrator/tasks/{$task->id}";
+        $disk = Storage::disk('local');
+        $revisions = collect($disk->files($directory))
+            ->map(fn (string $path) => basename($path))
+            ->filter(fn (string $artifact) => preg_match('/^revision-\d+\.md$/', $artifact) === 1)
+            ->sortBy(fn (string $artifact) => (int) preg_replace('/\D/', '', $artifact))
+            ->values();
+        $artifactNames = collect(self::ARTIFACT_NAMES)
+            ->merge($revisions)
+            ->map(fn (string $artifact) => [
+                'name' => $artifact,
+                'exists' => $disk->exists("{$directory}/{$artifact}"),
+            ]);
+
         return view('tasks.show', [
             'task' => $task->load('project'),
             'presenter' => $presenter,
+            'artifacts' => $artifactNames,
         ]);
+    }
+
+    public function showArtifact(OrchestratorTask $task, string $artifact)
+    {
+        abort_unless($this->isAllowedArtifact($artifact), 404);
+
+        $path = "orchestrator/tasks/{$task->id}/{$artifact}";
+        $disk = Storage::disk('local');
+
+        abort_unless($disk->exists($path), 404);
+
+        return view('tasks.artifact', [
+            'task' => $task->load('project'),
+            'artifact' => $artifact,
+            'content' => $disk->get($path),
+            'size' => $disk->size($path),
+            'lastModified' => date('Y-m-d H:i:s', $disk->lastModified($path)),
+        ]);
+    }
+
+    private function isAllowedArtifact(string $artifact): bool
+    {
+        return in_array($artifact, self::ARTIFACT_NAMES, true)
+            || preg_match('/^revision-\d+\.md$/', $artifact) === 1;
     }
 }

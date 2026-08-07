@@ -43,7 +43,7 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 
 ## Running the local environment
 
-Use the smallest command that matches what you need. The web dashboard is read-only: it shows task status and attention counts, a compact task list, task details, artifact paths, and configured acceptance expectations. It does not approve, reject, archive, or run tasks.
+Use the smallest command that matches what you need. The web dashboard is read-only: it shows task status and attention counts, a compact task list, task details, available task artifacts, and configured acceptance expectations. It does not approve, reject, archive, or run tasks.
 
 ### Dashboard only
 
@@ -75,6 +75,8 @@ That Composer script starts:
 | `npm run dev` | Starts Vite for frontend assets and hot reload. |
 
 Rule of thumb: use `.\bin\artisan.ps1 serve` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. Use the CLI commands for all task actions.
+
+Task detail pages list the task-local artifacts that are available. Select an artifact to read it in the browser; the viewer only serves the documented artifact names and numbered `revision-{n}.md` files from that task's private storage directory. It renders escaped, read-only text and cannot browse arbitrary local paths.
 
 ## Commands
 

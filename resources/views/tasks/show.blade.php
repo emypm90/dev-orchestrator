@@ -25,6 +25,21 @@
     </section>
 
     <section class="panel">
+        <h2>Artifacts</h2>
+        <ul class="artifacts">
+            @foreach ($artifacts as $artifact)
+                <li>
+                    @if ($artifact['exists'])
+                        <a class="mono" href="{{ route('tasks.artifacts.show', ['task' => $task, 'artifact' => $artifact['name']]) }}">{{ $artifact['name'] }}</a>
+                    @else
+                        <span class="mono muted">{{ $artifact['name'] }} (not available)</span>
+                    @endif
+                </li>
+            @endforeach
+        </ul>
+    </section>
+
+    <section class="panel">
         <h2>Acceptance expectations</h2>
         <div class="expectations">
             <section><h3>Expected files ({{ count($task->expected_files ?? []) }})</h3><ul>@forelse ($task->expected_files ?? [] as $file)<li class="mono">{{ $file }}</li>@empty<li class="muted">None configured.</li>@endforelse</ul></section>

@@ -43,6 +43,8 @@
         .expectations h3 { font-size: .9rem; margin: 0 0 8px; }
         .expectations ul { margin: 0; padding-left: 18px; font-size: .88rem; }
         .expectations li + li { margin-top: 5px; }
+        .artifacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 18px; margin: 0; padding-left: 18px; font-size: .9rem; }
+        .artifact-content { margin: 0; padding: 14px; overflow: auto; color: #dce7ff; background: #14213d; border-radius: 7px; font: .84rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
         @media (max-width: 700px) { .topline { display: block; } .notice { margin-top: 14px; } .detail { grid-template-columns: 1fr; } .detail dt { border-bottom: 0; padding-bottom: 2px; } .detail dd { padding-top: 2px; } .expectations { grid-template-columns: 1fr; } }
     </style>
 </head>
