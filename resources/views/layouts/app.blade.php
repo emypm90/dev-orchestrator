@@ -16,6 +16,9 @@
         h2 { margin: 0 0 12px; font-size: 1.05rem; }
         .eyebrow { color: #526078; font-size: .78rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; margin: 0 0 5px; }
         .notice { margin: 0; padding: 10px 13px; color: #654600; background: #fff6d9; border: 1px solid #f0d88c; border-radius: 8px; font-size: .9rem; }
+        .success, .errors { margin: 0 0 18px; padding: 10px 13px; border-radius: 8px; font-size: .9rem; }
+        .success { color: #14532d; background: #edf9f0; border: 1px solid #9cddad; }
+        .errors { color: #8a1c1c; background: #fff0f0; border: 1px solid #efb1b1; }
         .panel { background: #fff; border: 1px solid #dce2ed; border-radius: 10px; padding: 18px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(24, 39, 75, .04); }
         .counts { display: flex; flex-wrap: wrap; gap: 10px; }
         .count { min-width: 104px; padding: 10px 12px; background: #f4f7fc; border-radius: 7px; }
@@ -24,7 +27,7 @@
         .count span { color: #58657b; font-size: .82rem; }
         .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
         label { display: grid; gap: 4px; color: #526078; font-size: .82rem; font-weight: 650; }
-        select, button { min-height: 34px; border: 1px solid #bbc6d8; border-radius: 6px; background: white; color: #172033; padding: 5px 8px; }
+        input, select, textarea, button { min-height: 34px; border: 1px solid #bbc6d8; border-radius: 6px; background: white; color: #172033; padding: 5px 8px; font: inherit; }
         button { background: #172e5b; border-color: #172e5b; color: #fff; cursor: pointer; font-weight: 650; }
         .filter-link { font-size: .9rem; }
         .table-wrap { overflow-x: auto; }
@@ -44,8 +47,12 @@
         .expectations ul { margin: 0; padding-left: 18px; font-size: .88rem; }
         .expectations li + li { margin-top: 5px; }
         .artifacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 18px; margin: 0; padding-left: 18px; font-size: .9rem; }
+        .review-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .review-actions form { display: grid; gap: 9px; align-content: start; padding: 12px; background: #f7f9fd; border-radius: 7px; }
+        .review-actions h3 { margin: 0; font-size: .95rem; }
+        .review-actions textarea { width: 100%; min-height: 92px; resize: vertical; }
         .artifact-content { margin: 0; padding: 14px; overflow: auto; color: #dce7ff; background: #14213d; border-radius: 7px; font: .84rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-        @media (max-width: 700px) { .topline { display: block; } .notice { margin-top: 14px; } .detail { grid-template-columns: 1fr; } .detail dt { border-bottom: 0; padding-bottom: 2px; } .detail dd { padding-top: 2px; } .expectations { grid-template-columns: 1fr; } }
+        @media (max-width: 700px) { .topline { display: block; } .notice { margin-top: 14px; } .detail { grid-template-columns: 1fr; } .detail dt { border-bottom: 0; padding-bottom: 2px; } .detail dd { padding-top: 2px; } .expectations, .review-actions { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -55,8 +62,18 @@
                 <p class="eyebrow">Local development orchestrator</p>
                 <h1><a href="{{ route('tasks.index') }}" style="color: inherit; text-decoration: none;">{{ $heading ?? 'Task dashboard' }}</a></h1>
             </div>
-            <p class="notice">Read-only dashboard. Use the CLI for task actions.</p>
+            <p class="notice">Local-only review decisions. These actions do not change Git state.</p>
         </header>
+        @if (session('success'))
+            <p class="success">{{ session('success') }}</p>
+        @endif
+        @if ($errors->any())
+            <div class="errors">
+                @foreach ($errors->all() as $error)
+                    <div>{{ $error }}</div>
+                @endforeach
+            </div>
+        @endif
         @yield('content')
     </main>
 </body>

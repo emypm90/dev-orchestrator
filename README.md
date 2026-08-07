@@ -43,11 +43,11 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 
 ## Running the local environment
 
-Use the smallest command that matches what you need. The web dashboard is read-only: it shows task status and attention counts, a compact task list, task details, available task artifacts, and configured acceptance expectations. It does not approve, reject, archive, or run tasks.
+Use the smallest command that matches what you need. The web dashboard shows task status and attention counts, a compact task list, task details, available task artifacts, and configured acceptance expectations. Task detail pages also support safe local human review decisions: approve, request revision, or reject. The UI does not run, rerun, archive, modify Git state, commit, push, or merge.
 
 ### Dashboard only
 
-Use this when you only want to open the current read-only dashboard. It starts the Laravel HTTP server and nothing else:
+Use this when you want to open the local dashboard. It starts the Laravel HTTP server and nothing else:
 
 ```powershell
 .\bin\artisan.ps1 serve
@@ -74,7 +74,7 @@ That Composer script starts:
 | `php artisan pail --timeout=0` | Streams Laravel logs in the terminal. |
 | `npm run dev` | Starts Vite for frontend assets and hot reload. |
 
-Rule of thumb: use `.\bin\artisan.ps1 serve` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. Use the CLI commands for all task actions.
+Rule of thumb: use `.\bin\artisan.ps1 serve` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. The web UI only records approve, needs-revision, and reject decisions; use the CLI for every other task action.
 
 Task detail pages list the task-local artifacts that are available. Select an artifact to read it in the browser; the viewer only serves the documented artifact names and numbered `revision-{n}.md` files from that task's private storage directory. It renders escaped, read-only text and cannot browse arbitrary local paths.
 
@@ -170,4 +170,5 @@ Prepare multiple task IDs. Every task has its own branch and sibling worktree, s
 ## Limits of this MVP
 
 - It assumes the configured default branch exists locally; it does not fetch remotes.
-- The dashboard is read-only and does not replace human review of artifacts.
+- The dashboard only records safe human review decisions and does not replace review of artifacts.
+- The web UI cannot run, rerun, archive, delete, commit, push, merge, or otherwise modify Git state.

@@ -12,12 +12,12 @@ class TaskDashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_root_shows_the_read_only_task_dashboard_instead_of_the_welcome_page(): void
+    public function test_root_shows_the_task_dashboard_instead_of_the_welcome_page(): void
     {
         $this->get('/')
             ->assertOk()
             ->assertSee('Task dashboard')
-            ->assertSee('Read-only dashboard. Use the CLI for task actions.')
+            ->assertSee('Local-only review decisions. These actions do not change Git state.')
             ->assertDontSee('Let\'s get started');
     }
 
@@ -73,6 +73,25 @@ class TaskDashboardTest extends TestCase
             ->assertSee('Expected regexes (1)')
             ->assertSee('docs/dashboard.md')
             ->assertSee('Fix acceptance failure, then rerun.');
+    }
+
+    public function test_task_detail_shows_safe_review_decision_forms(): void
+    {
+        $task = OrchestratorTask::create([
+            'project_id' => $this->project('review-forms')->id,
+            'title' => 'Review web forms',
+            'status' => 'completed',
+        ]);
+
+        $this->get(route('tasks.show', $task))
+            ->assertOk()
+            ->assertSee('Review decision')
+            ->assertSee('These actions record a human decision only. They do not run, archive, or change Git state.')
+            ->assertSee(route('tasks.approve', $task))
+            ->assertSee(route('tasks.revision', $task))
+            ->assertSee(route('tasks.reject', $task))
+            ->assertSee('name="notes"', false)
+            ->assertSee('name="reason"', false);
     }
 
     public function test_task_detail_links_to_available_artifacts_only(): void

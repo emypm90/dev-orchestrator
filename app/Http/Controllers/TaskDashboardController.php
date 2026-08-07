@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\OrchestratorProject;
 use App\Models\OrchestratorTask;
+use App\Services\Orchestrator\ReviewDecisionRecorder;
 use App\Services\Orchestrator\TaskStatusPresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -83,6 +84,39 @@ class TaskDashboardController extends Controller
             'presenter' => $presenter,
             'artifacts' => $artifactNames,
         ]);
+    }
+
+    public function approve(Request $request, OrchestratorTask $task, ReviewDecisionRecorder $decisions)
+    {
+        $validated = $request->validate([
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $decisions->record($task->loadMissing('project'), 'approved', ($validated['notes'] ?? null) ?: 'No notes provided.');
+
+        return redirect()->route('tasks.show', $task)->with('success', "Task {$task->id} approved. Decision recorded.");
+    }
+
+    public function revision(Request $request, OrchestratorTask $task, ReviewDecisionRecorder $decisions)
+    {
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $decisions->record($task->loadMissing('project'), 'needs_revision', ($validated['reason'] ?? null) ?: 'No reason provided.');
+
+        return redirect()->route('tasks.show', $task)->with('success', "Task {$task->id} marked as needing revision. Decision recorded.");
+    }
+
+    public function reject(Request $request, OrchestratorTask $task, ReviewDecisionRecorder $decisions)
+    {
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $decisions->record($task->loadMissing('project'), 'rejected', ($validated['reason'] ?? null) ?: 'No reason provided.');
+
+        return redirect()->route('tasks.show', $task)->with('success', "Task {$task->id} rejected. Decision recorded.");
     }
 
     public function showArtifact(OrchestratorTask $task, string $artifact)

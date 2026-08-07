@@ -40,6 +40,37 @@
     </section>
 
     <section class="panel">
+        <h2>Review decision</h2>
+        <p class="notice">These actions record a human decision only. They do not run, archive, or change Git state.</p>
+        <div class="review-actions" style="margin-top: 14px;">
+            <form method="POST" action="{{ route('tasks.approve', $task) }}">
+                @csrf
+                <h3>Approve</h3>
+                <label for="notes">Optional notes
+                    <textarea id="notes" name="notes" maxlength="2000">{{ old('notes') }}</textarea>
+                </label>
+                <button type="submit">Approve task</button>
+            </form>
+            <form method="POST" action="{{ route('tasks.revision', $task) }}">
+                @csrf
+                <h3>Needs revision</h3>
+                <label for="revision-reason">Reason
+                    <textarea id="revision-reason" name="reason" maxlength="2000">{{ old('reason') }}</textarea>
+                </label>
+                <button type="submit">Request revision</button>
+            </form>
+            <form method="POST" action="{{ route('tasks.reject', $task) }}">
+                @csrf
+                <h3>Reject</h3>
+                <label for="reject-reason">Reason
+                    <textarea id="reject-reason" name="reason" maxlength="2000">{{ old('reason') }}</textarea>
+                </label>
+                <button type="submit">Reject task</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="panel">
         <h2>Acceptance expectations</h2>
         <div class="expectations">
             <section><h3>Expected files ({{ count($task->expected_files ?? []) }})</h3><ul>@forelse ($task->expected_files ?? [] as $file)<li class="mono">{{ $file }}</li>@empty<li class="muted">None configured.</li>@endforelse</ul></section>
