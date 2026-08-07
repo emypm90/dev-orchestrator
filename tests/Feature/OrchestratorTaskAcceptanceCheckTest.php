@@ -7,6 +7,7 @@ use App\Models\OrchestratorTask;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class OrchestratorTaskAcceptanceCheckTest extends TestCase
@@ -41,6 +42,21 @@ class OrchestratorTaskAcceptanceCheckTest extends TestCase
             ->expectsOutputToContain('cannot contain ".."')->assertFailed();
 
         $this->artisan('orchestrator:task-expect-file', ['task' => 999, 'file' => 'docs/missing.md'])
+            ->expectsOutputToContain('Task not found.')->assertFailed();
+    }
+
+    public function test_it_adds_a_normalized_forbidden_file_only_once(): void
+    {
+        $task = $this->task(null);
+
+        $this->artisan('orchestrator:task-forbid-file', ['task' => $task->id, 'file' => '.\\README.md'])->assertSuccessful();
+        $this->artisan('orchestrator:task-forbid-file', ['task' => $task->id, 'file' => 'README.md'])->assertSuccessful();
+        $this->assertSame(['README.md'], $task->fresh()->forbidden_files);
+
+        $this->artisan('orchestrator:task-forbid-file', ['task' => $task->id, 'file' => '../outside.md'])
+            ->expectsOutputToContain('cannot contain ".."')->assertFailed();
+
+        $this->artisan('orchestrator:task-forbid-file', ['task' => 999, 'file' => 'README.md'])
             ->expectsOutputToContain('Task not found.')->assertFailed();
     }
 
@@ -82,8 +98,65 @@ class OrchestratorTaskAcceptanceCheckTest extends TestCase
         Storage::disk('local')->assertExists("orchestrator/tasks/{$skipped->id}/acceptance.md");
     }
 
-    /** @param array<int, string>|null $expectedFiles */
-    private function task(?array $expectedFiles, ?string $worktree = null): OrchestratorTask
+    public function test_it_fails_when_configured_forbidden_files_are_tracked_or_untracked_changes(): void
+    {
+        Storage::fake('local');
+        $worktree = $this->gitWorktree();
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.'README.md', "# Changed\n");
+        (new Process(['git', '-C', $worktree, 'add', 'README.md']))->mustRun();
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.'docs'.DIRECTORY_SEPARATOR.'guide.md', "Changed guide\n");
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.'UNTRACKED.md', "Unexpected\n");
+        $task = $this->task(['docs/guide.md'], $worktree, ['README.md', 'docs/guide.md', 'UNTRACKED.md']);
+
+        $this->artisan('orchestrator:task-acceptance-check', ['task' => $task->id])->assertFailed();
+
+        $task->refresh();
+        $this->assertSame('failed', $task->last_acceptance_status);
+        $artifact = Storage::disk('local')->get("orchestrator/tasks/{$task->id}/acceptance.md");
+        $this->assertStringContainsString('## Violated forbidden files', $artifact);
+        $this->assertStringContainsString('`README.md`', $artifact);
+        $this->assertStringContainsString('`docs/guide.md`', $artifact);
+        $this->assertStringContainsString('`UNTRACKED.md`', $artifact);
+        $this->assertStringContainsString('## Touched files', $artifact);
+    }
+
+    public function test_it_passes_when_expected_files_exist_and_forbidden_files_are_untouched(): void
+    {
+        Storage::fake('local');
+        $worktree = $this->gitWorktree();
+        $task = $this->task(['docs/guide.md'], $worktree, ['README.md']);
+
+        $this->artisan('orchestrator:task-acceptance-check', ['task' => $task->id])->assertSuccessful();
+
+        $artifact = Storage::disk('local')->get("orchestrator/tasks/{$task->id}/acceptance.md");
+        $this->assertStringContainsString('Status: passed', $artifact);
+        $this->assertStringContainsString('## Clean forbidden files', $artifact);
+        $this->assertStringContainsString('`README.md`', $artifact);
+    }
+
+    /** @return string */
+    private function gitWorktree(): string
+    {
+        $worktree = $this->root.DIRECTORY_SEPARATOR.'worktree-'.uniqid();
+        File::ensureDirectoryExists($worktree.DIRECTORY_SEPARATOR.'docs');
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.'README.md', "# Source\n");
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.'docs'.DIRECTORY_SEPARATOR.'guide.md', "Guide\n");
+
+        foreach ([
+            ['git', 'init', '-b', 'main', $worktree],
+            ['git', '-C', $worktree, 'config', 'user.email', 'test@example.com'],
+            ['git', '-C', $worktree, 'config', 'user.name', 'Test User'],
+            ['git', '-C', $worktree, 'add', 'README.md', 'docs/guide.md'],
+            ['git', '-C', $worktree, 'commit', '-m', 'Initial commit'],
+        ] as $command) {
+            (new Process($command))->mustRun();
+        }
+
+        return $worktree;
+    }
+
+    /** @param array<int, string>|null $expectedFiles @param array<int, string>|null $forbiddenFiles */
+    private function task(?array $expectedFiles, ?string $worktree = null, ?array $forbiddenFiles = null): OrchestratorTask
     {
         $project = OrchestratorProject::create([
             'name' => 'project-'.uniqid(),
@@ -96,6 +169,7 @@ class OrchestratorTaskAcceptanceCheckTest extends TestCase
             'title' => 'Check expected files',
             'worktree_path' => $worktree,
             'expected_files' => $expectedFiles,
+            'forbidden_files' => $forbiddenFiles,
         ]);
     }
 }

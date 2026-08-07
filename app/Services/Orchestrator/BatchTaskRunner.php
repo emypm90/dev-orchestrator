@@ -120,7 +120,7 @@ class BatchTaskRunner
                     $result['acceptance_path'] = $acceptance['path'];
                     $result['acceptance_status'] = $acceptance['status'];
                     if ($acceptance['status'] !== 'passed') {
-                        $result['next_action'] = 'Inspect acceptance.md and create any missing expected files.';
+                        $result['next_action'] = 'Inspect acceptance.md and resolve missing expected files or forbidden file changes.';
                     }
                 } catch (Throwable $exception) {
                     $result['next_action'] = 'Acceptance check could not run: '.$exception->getMessage();

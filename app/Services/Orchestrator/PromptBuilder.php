@@ -30,6 +30,9 @@ Autonomy level: {$task->autonomy}
 ## Expected files
 {$this->expectedFiles($task)}
 
+## Forbidden files
+{$this->forbiddenFiles($task)}
+
 ## Verification commands
 Test: {$project->test_command}
 Lint: {$project->lint_command}
@@ -91,6 +94,15 @@ PROMPT;
         return $files === []
             ? 'No machine-readable expected files are configured.'
             : implode("\n", array_map(fn (string $file): string => "- `{$file}`", $files));
+    }
+
+    private function forbiddenFiles(OrchestratorTask $task): string
+    {
+        $files = $task->forbidden_files ?? [];
+
+        return $files === []
+            ? 'No machine-readable forbidden files are configured.'
+            : implode("\n", array_map(fn (string $file): string => "- `{$file}` must remain untouched.", $files));
     }
 
     private function artifactLocation(OrchestratorTask $task, string $file): ?string

@@ -15,7 +15,8 @@ class OrchestratorTaskCreate extends Command
         {--description= : Task context and requested work}
         {--acceptance= : Acceptance criteria}
         {--autonomy=medium : low, medium, or high}
-        {--expected-file=* : Relative file required for acceptance; repeat option for multiple files}';
+        {--expected-file=* : Relative file required for acceptance; repeat option for multiple files}
+        {--forbid-file=* : Relative file that must remain untouched; repeat option for multiple files}';
 
     protected $description = 'Create a task for a registered project';
 
@@ -36,7 +37,8 @@ class OrchestratorTaskCreate extends Command
         }
 
         try {
-            $expectedFiles = array_values(array_unique(array_map($paths->normalize(...), (array) $this->option('expected-file'))));
+            $expectedFiles = $this->normalizedFiles($paths, 'expected-file');
+            $forbiddenFiles = $this->normalizedFiles($paths, 'forbid-file');
         } catch (\InvalidArgumentException $exception) {
             $this->error($exception->getMessage());
 
@@ -50,10 +52,17 @@ class OrchestratorTaskCreate extends Command
             'acceptance_criteria' => $this->option('acceptance'),
             'autonomy' => $autonomy,
             'expected_files' => $expectedFiles === [] ? null : $expectedFiles,
+            'forbidden_files' => $forbiddenFiles === [] ? null : $forbiddenFiles,
         ]);
 
         $this->info("Created task #{$task->id}: {$task->title}");
 
         return self::SUCCESS;
+    }
+
+    /** @return array<int, string> */
+    private function normalizedFiles(ExpectedFilePath $paths, string $option): array
+    {
+        return array_values(array_unique(array_map($paths->normalize(...), (array) $this->option($option))));
     }
 }

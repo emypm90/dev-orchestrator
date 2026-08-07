@@ -25,6 +25,7 @@ class OrchestratorTaskCreateTest extends TestCase
             '--acceptance' => 'Command is registered.',
             '--autonomy' => 'medium',
             '--expected-file' => ['docs/export.md', '.\\README.md', 'docs/export.md'],
+            '--forbid-file' => ['README.md', '.\\composer.lock', 'README.md'],
         ])->assertSuccessful();
 
         $this->assertDatabaseHas('orchestrator_tasks', [
@@ -33,6 +34,7 @@ class OrchestratorTaskCreateTest extends TestCase
             'status' => 'draft',
         ]);
         $this->assertSame(['docs/export.md', 'README.md'], $project->tasks()->firstOrFail()->expected_files);
+        $this->assertSame(['README.md', 'composer.lock'], $project->tasks()->firstOrFail()->forbidden_files);
     }
 
     public function test_it_rejects_absolute_and_traversal_expected_file_paths(): void
@@ -53,6 +55,12 @@ class OrchestratorTaskCreateTest extends TestCase
             'project' => 'sample',
             'title' => 'Traversal expected file',
             '--expected-file' => 'docs/../outside.md',
+        ])->expectsOutputToContain('cannot contain ".."')->assertFailed();
+
+        $this->artisan('orchestrator:task-create', [
+            'project' => 'sample',
+            'title' => 'Unsafe forbidden file',
+            '--forbid-file' => '../README.md',
         ])->expectsOutputToContain('cannot contain ".."')->assertFailed();
     }
 }

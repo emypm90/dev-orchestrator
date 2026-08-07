@@ -23,7 +23,7 @@ From this project directory in PowerShell:
 .\bin\artisan.ps1 orchestrator:task-review 1
 .\bin\artisan.ps1 orchestrator:task-revision 1 --reason="Create the requested documentation file."
 .\bin\artisan.ps1 orchestrator:task-rerun 1 --instructions="Create the requested files; do not edit README instead." --verify --acceptance --review
- .\bin\artisan.ps1 orchestrator:task-acceptance-check 1
+.\bin\artisan.ps1 orchestrator:task-acceptance-check 1
 .\bin\artisan.ps1 orchestrator:task-approve 1 --notes="Verified the requested files and checks."
 .\bin\artisan.ps1 orchestrator:task-open 1
 .\bin\artisan.ps1 orchestrator:task-archive 1
@@ -46,13 +46,14 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 | Command | Behavior |
 | --- | --- |
 | `orchestrator:project-add {name} {repo_path}` | Validates and registers a local Git worktree. Options: `--default-branch`, `--test`, `--lint`, `--rules`. |
-| `orchestrator:task-create {project} {title}` | Creates a `draft` task. Options: `--description`, `--acceptance`, repeatable `--expected-file=relative/path`, `--autonomy=low|medium|high`. Expected paths are normalized and reject absolute or `..` traversal paths. |
+| `orchestrator:task-create {project} {title}` | Creates a `draft` task. Options: `--description`, `--acceptance`, repeatable `--expected-file=relative/path`, repeatable `--forbid-file=relative/path`, `--autonomy=low|medium|high`. File paths are normalized and reject absolute or `..` traversal paths. |
 | `orchestrator:task-expect-file {task} {file}` | Adds one relative expected file after task creation. Duplicate paths are ignored. |
+| `orchestrator:task-forbid-file {task} {file}` | Adds one relative file that must remain untouched after task creation. Duplicate paths are ignored. |
 | `orchestrator:task-prepare {task}` | Creates `ai/task-{id}-{slug}` and a sibling worktree `{repo}-task-{id}`. Saves `prompt.md`. It refuses existing worktree paths. |
 | `orchestrator:task-run {task}` | Regenerates the prompt and invokes `opencode run --dir <worktree> <prompt>` when available. No commit or push is performed. |
 | `orchestrator:task-batch-run {tasks*}` | Runs independent `prepared`, `blocked`, or `failed` tasks with `--concurrency=1..4` (default `2`). `draft` tasks require `--prepare`; `completed` tasks are skipped with a warning; `running` and `archived` tasks are refused. Options: `--prepare`, `--verify`, `--acceptance`, `--review`. Saves a batch artifact and never archives tasks. |
 | `orchestrator:task-verify {task}` | Runs configured project test and lint commands with PowerShell in the task worktree, or the project repository when no worktree exists. Use `--test` or `--lint` to run one command only. The command never changes Git state. |
-| `orchestrator:task-acceptance-check {task}` | Checks configured expected files in the task worktree, falling back to the project repository only when no worktree exists. Saves an acceptance artifact and exits non-zero for `failed` or `skipped`. |
+| `orchestrator:task-acceptance-check {task}` | Checks configured expected files and forbidden-file changes in the task worktree, falling back to the project repository only when no worktree exists. Saves an acceptance artifact and exits non-zero for `failed` or `skipped`. |
 | `orchestrator:task-review {task}` | Captures current Git status, diff stat, modified files, and `TASK_SUMMARY.md` if the agent wrote it. |
 | `orchestrator:task-approve {task}` | Records the human decision as `approved` and changes task status to `approved`. Option: `--notes`. It never commits, pushes, or merges. |
 | `orchestrator:task-reject {task}` | Records the human decision as `rejected` and changes task status to `rejected`. Option: `--reason`. It never commits, pushes, or merges. |
@@ -70,7 +71,7 @@ Each task's local artifacts are stored under `storage/app/private/orchestrator/t
 - `prompt.md`: structured OpenCode task prompt, including rules and safety constraints.
 - `run.log`: OpenCode output or the missing-CLI explanation.
 - `verification.md`: test and lint commands, output, exit codes, durations, directories, and timestamps. The latest result is linked from reviews and retained in archives and weekly reports.
-- `acceptance.md`: expected files, found and missing files, directory used, timestamps, status, and the next action. `passed` means only that the configured files exist.
+- `acceptance.md`: expected files, found and missing files, forbidden files, clean and violated forbidden files, all touched files, directory used, timestamps, status, and the next action. `passed` means only that the configured checks passed.
 - `review.md`: Git status, diff stat, modified files, and the agent summary.
 - `decision.md`: the human approval, rejection, or revision request with notes, review link, verification status, and worktree location.
 - `revision-{n}.md`: the rerun prompt with the original task, latest decision, review and verification references, and additional instructions.
@@ -84,19 +85,20 @@ Saved weekly reports are stored under `storage/app/private/orchestrator/reports/
 
 Open the worktree folder in VS Code to review and test when the task is ready. Use GitHub Desktop only after that review; this application does not perform Git commits or pushes.
 
-## Expected-file acceptance
+## File acceptance
 
 Declare objective file outputs when creating a task, or add one later:
 
 ```powershell
-.\bin\artisan.ps1 orchestrator:task-create my-app "Document batch runs" --expected-file=docs\batch-run-happy-path.md
+.\bin\artisan.ps1 orchestrator:task-create my-app "Document batch runs" --expected-file=docs\batch-run-happy-path.md --forbid-file=README.md
 .\bin\artisan.ps1 orchestrator:task-expect-file 2 docs\batch-run-troubleshooting.md
+.\bin\artisan.ps1 orchestrator:task-forbid-file 2 composer.lock
 .\bin\artisan.ps1 orchestrator:task-acceptance-check 2
 ```
 
-The check uses the existing task worktree when available; otherwise it uses the registered project repository. It reports `passed` when every configured file exists, `failed` when one is missing, and `skipped` when no expected files are configured. A failed or skipped standalone check returns non-zero for scripts and CI-style automation.
+The check uses the existing task worktree when available; otherwise it uses the registered project repository. It reports `passed` when every expected file exists and every forbidden file is untouched. It reports `failed` when an expected file is missing or a forbidden path appears in `git diff --name-only`, `git diff --cached --name-only`, or `git ls-files --others --exclude-standard`. It reports `skipped` only when neither expected nor forbidden files are configured. A failed or skipped standalone check returns non-zero for scripts and CI-style automation.
 
-Acceptance checks catch objective misses such as editing `README.md` instead of creating `docs\batch-run-happy-path.md`. They are not a replacement for human review: a passing result does not evaluate content, tests, design, or whether the task should be approved.
+Forbidden files catch unwanted edits such as changing `README.md` while creating `docs\batch-run-happy-path.md`. They are not a substitute for human review: a passing result does not evaluate content, tests, design, or whether the task should be approved.
 
 ## Revision loop
 
