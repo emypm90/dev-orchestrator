@@ -82,9 +82,18 @@
         .back-link { display: inline-flex; gap: 6px; margin: 0 0 14px; font-size: .85rem; text-decoration: none; }
         .task-heading { margin-bottom: 2px; font-size: clamp(1.28rem, 2.8vw, 1.8rem); }
         .state-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
-        .next-action-card { position: relative; overflow: hidden; margin-bottom: 18px; padding: 18px 20px; background: linear-gradient(105deg, rgba(8, 91, 111, .29), rgba(49, 46, 129, .24)); border: 1px solid rgba(103, 232, 249, .35); border-radius: 12px; }
-        .next-action-card::after { position: absolute; top: -50px; right: 4%; width: 140px; height: 140px; border: 1px solid rgba(103, 232, 249, .22); border-radius: 50%; content: ""; }
-        .next-action-card strong { position: relative; display: block; margin-top: 4px; color: #f0f9ff; font-size: 1.04rem; }
+        .decision-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .summary-card { min-width: 0; padding: 15px; background: rgba(15, 23, 42, .62); border: 1px solid rgba(100, 116, 139, .28); border-radius: 10px; }
+        .summary-card h3 { margin: 7px 0 6px; font-size: .98rem; }
+        .summary-card p { margin: 7px 0 0; color: #bdcad9; font-size: .84rem; line-height: 1.5; overflow-wrap: anywhere; }
+        .summary-objective { border-color: rgba(103, 232, 249, .35); }
+        .summary-attention { border-color: rgba(251, 191, 36, .38); }
+        .attention-reasons p + p { margin-top: 9px; }
+        .attention-reasons blockquote { margin: 8px 0 0; padding: 9px 11px; color: #f3e8ff; background: rgba(107, 33, 168, .18); border-left: 3px solid #c084fc; border-radius: 0 6px 6px 0; font-size: .84rem; line-height: 1.45; overflow-wrap: anywhere; }
+        .summary-next-action { background: linear-gradient(105deg, rgba(8, 91, 111, .28), rgba(49, 46, 129, .23)); border-color: rgba(103, 232, 249, .35); }
+        .summary-next-action strong { display: block; margin-top: 7px; color: #f0f9ff; font-size: 1rem; line-height: 1.4; }
+        .summary-evidence ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 20px; margin: 9px 0 0; padding-left: 20px; color: #c9d7e7; font-size: .81rem; line-height: 1.45; }
+        .technical-details { opacity: .82; }
         .detail { display: grid; grid-template-columns: minmax(150px, .7fr) 2fr; margin: 0; }
         .detail dt, .detail dd { padding: 10px 0; margin: 0; border-bottom: 1px solid rgba(100, 116, 139, .19); }
         .detail dt { color: #91a2b8; font-size: .78rem; font-weight: 720; }
@@ -121,8 +130,8 @@
         .viewer-lights i { display: block; width: 8px; height: 8px; background: #475569; border-radius: 50%; }
         .viewer-lights i:first-child { background: #fb7185; } .viewer-lights i:nth-child(2) { background: #fbbf24; } .viewer-lights i:last-child { background: #34d399; }
         .artifact-content { max-height: min(70vh, 880px); margin: 0; padding: clamp(16px, 3vw, 26px); overflow: auto; color: #dbeafe; background: #09111e; font: .84rem/1.7 "Cascadia Code", "SFMono-Regular", Consolas, monospace; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
-        @media (max-width: 800px) { .topline { align-items: start; flex-direction: column; } .safety-notice { max-width: none; } .dashboard-grid, .review-actions { grid-template-columns: 1fr; } .artifact-meta { grid-template-columns: 1fr; } }
-        @media (max-width: 600px) { .shell { padding-top: 14px; } .topline { margin-bottom: 18px; } .detail { grid-template-columns: 1fr; } .detail dt { padding-bottom: 2px; border-bottom: 0; } .detail dd { padding-top: 2px; } .expectations { grid-template-columns: 1fr; } .panel-header { display: block; } .panel-header > * + * { margin-top: 8px; } }
+        @media (max-width: 800px) { .topline { align-items: start; flex-direction: column; } .safety-notice { max-width: none; } .dashboard-grid, .decision-summary, .review-actions { grid-template-columns: 1fr; } .artifact-meta { grid-template-columns: 1fr; } }
+        @media (max-width: 600px) { .shell { padding-top: 14px; } .topline { margin-bottom: 18px; } .detail { grid-template-columns: 1fr; } .detail dt { padding-bottom: 2px; border-bottom: 0; } .detail dd { padding-top: 2px; } .expectations, .summary-evidence ol { grid-template-columns: 1fr; } .panel-header { display: block; } .panel-header > * + * { margin-top: 8px; } }
     </style>
 </head>
 <body>

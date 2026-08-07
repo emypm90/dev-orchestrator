@@ -41,12 +41,14 @@ class TaskDashboardTest extends TestCase
             ->assertSee('Revisá los artefactos; después aprobá, rechazá o pedí una revisión.');
     }
 
-    public function test_task_detail_shows_metadata_and_acceptance_expectations(): void
+    public function test_task_detail_shows_decision_summary_and_acceptance_expectations(): void
     {
         $project = $this->project('beta');
         $task = OrchestratorTask::create([
             'project_id' => $project->id,
             'title' => 'Document the dashboard',
+            'description' => 'Explicar cómo usar el tablero de tareas.',
+            'acceptance_criteria' => 'Incluir pasos de inicio rápido y las restricciones de solo lectura.',
             'status' => 'completed',
             'branch_name' => 'ai/task-1-document-dashboard',
             'worktree_path' => 'C:\\worktrees\\task-1',
@@ -65,8 +67,14 @@ class TaskDashboardTest extends TestCase
         $this->get(route('tasks.show', $task))
             ->assertOk()
             ->assertSee('Document the dashboard')
+            ->assertSee('Resumen para decidir')
+            ->assertSee('Explicar cómo usar el tablero de tareas.')
+            ->assertSee('Incluir pasos de inicio rápido y las restricciones de solo lectura.')
+            ->assertSee('Por qué requiere atención')
+            ->assertSee('La comprobación de aceptación falló.')
             ->assertSee('C:\\worktrees\\task-1')
             ->assertSee('Add the quick start steps.')
+            ->assertSee('Detalles técnicos')
             ->assertSee('Requiere revisión')
             ->assertSee('Superada')
             ->assertSee('Fallida')
@@ -94,7 +102,9 @@ class TaskDashboardTest extends TestCase
             ->assertSee(route('tasks.revision', $task))
             ->assertSee(route('tasks.reject', $task))
             ->assertSee('name="notes"', false)
-            ->assertSee('name="reason"', false);
+            ->assertSee('name="reason"', false)
+            ->assertSee('No hay descripción cargada.')
+            ->assertSee('No hay criterios cargados.');
     }
 
     public function test_task_detail_links_to_available_artifacts_only(): void
