@@ -43,7 +43,7 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 
 ## Running the local environment
 
-Use the smallest command that matches what you need. The web dashboard shows task status and attention counts, a compact task list, task details, available task artifacts, and configured acceptance expectations. Task detail pages also support safe local human review decisions: approve, request revision, or reject. The UI does not run, rerun, archive, modify Git state, commit, push, or merge.
+Use the smallest command that matches what you need. The web dashboard is optimized for a developer review flow: start with the attention queue, see why a task needs attention, open its available artifacts in a low-strain read-only viewer, then record a safe local human decision. It shows task status and attention counts, task details, available task artifacts, and configured acceptance expectations. Task detail pages support only approve, request revision, or reject. The UI does not run, rerun, archive, modify Git state, commit, push, or merge.
 
 ### Dashboard only
 

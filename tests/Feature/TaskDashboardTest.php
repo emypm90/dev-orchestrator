@@ -16,8 +16,8 @@ class TaskDashboardTest extends TestCase
     {
         $this->get('/')
             ->assertOk()
-            ->assertSee('Task dashboard')
-            ->assertSee('Local-only review decisions. These actions do not change Git state.')
+            ->assertSee('Command center')
+            ->assertSee('Review decisions are recorded locally and never change Git state.')
             ->assertDontSee('Let\'s get started');
     }
 
@@ -124,7 +124,7 @@ class TaskDashboardTest extends TestCase
 
         $this->get(route('tasks.artifacts.show', ['task' => $task, 'artifact' => 'prompt.md']))
             ->assertOk()
-            ->assertSee('Read-only content')
+            ->assertSee('READ-ONLY CONTENT')
             ->assertSee('&lt;script&gt;alert(&quot;unsafe&quot;)&lt;/script&gt;', false);
     }
 
