@@ -62,9 +62,21 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 | `orchestrator:task-revision {task}` | Records the human decision as `needs_revision` and changes task status to `needs_revision`. Option: `--reason`. It never commits, pushes, or merges. |
 | `orchestrator:task-rerun {task}` | Reruns a `needs_revision`, `failed`, or `blocked` task in its existing worktree. Options: `--instructions`, `--verify`, `--acceptance`, `--review`. It clears the previous human decision because a new review is required; it refuses `completed`, `running`, `approved`, and `archived` tasks. |
 | `orchestrator:task-archive {task}` | Saves the task's final Git status, diff stat, changed-file list, latest commit, and tracked patch before marking it archived. `--remove-worktree` safely removes the Git worktree only after those artifacts are saved. |
-| `orchestrator:task-status {task?}` | Lists task statuses, branches, and worktree paths. |
+| `orchestrator:task-status {task?}` | Shows a compact task dashboard with status summary, attention counts, review/verification/acceptance state, updated age, and recommended next action. A task ID shows full task, artifact, check-count, branch, and worktree details. Options: `--project=name`, `--status=status`, `--attention`, `--limit=25`. |
 | `orchestrator:task-open {task}` | Opens the task worktree in VS Code. |
 | `orchestrator:weekly-report` | Prints a Monday-meeting report. Options: `--since=YYYY-MM-DD`, `--until=YYYY-MM-DD`, `--project=name`, and `--save`. |
+
+## Task dashboard
+
+Use the default dashboard to focus work without reading artifact files first:
+
+```powershell
+.\bin\artisan.ps1 orchestrator:task-status --attention
+.\bin\artisan.ps1 orchestrator:task-status --project=my-app --status=completed --limit=10
+.\bin\artisan.ps1 orchestrator:task-status 2
+```
+
+`--attention` limits the table to tasks awaiting human review, with failed verification or acceptance, needing revision, running, or blocked. The normal table deliberately omits branch and worktree paths; request one task by ID for those paths, review notes, artifact locations, archive information, and expected/forbidden/content-check counts.
 
 ## Artifacts and review
 
@@ -121,4 +133,4 @@ Prepare multiple task IDs. Every task has its own branch and sibling worktree, s
 ## Limits of this MVP
 
 - It assumes the configured default branch exists locally; it does not fetch remotes.
-- The dashboard is intentionally deferred: this first slice is CLI-first.
+- The dashboard is CLI-first and does not replace human review of artifacts.
