@@ -15,7 +15,7 @@ class OrchestratorTask extends Model
         'archived_at', 'archive_path', 'worktree_removed_at', 'latest_commit_hash',
         'last_verification_status', 'last_verified_at', 'last_verification_path',
         'review_decision', 'reviewed_at', 'review_notes',
-        'expected_files', 'forbidden_files', 'last_acceptance_status', 'last_acceptance_checked_at', 'last_acceptance_path',
+        'expected_files', 'forbidden_files', 'expected_texts', 'expected_regexes', 'last_acceptance_status', 'last_acceptance_checked_at', 'last_acceptance_path',
     ];
 
     protected function casts(): array
@@ -30,6 +30,8 @@ class OrchestratorTask extends Model
             'reviewed_at' => 'datetime',
             'expected_files' => 'array',
             'forbidden_files' => 'array',
+            'expected_texts' => 'array',
+            'expected_regexes' => 'array',
             'last_acceptance_checked_at' => 'datetime',
         ];
     }

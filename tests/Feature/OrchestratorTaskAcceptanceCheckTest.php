@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\OrchestratorProject;
 use App\Models\OrchestratorTask;
+use App\Services\Orchestrator\PromptBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -57,6 +58,23 @@ class OrchestratorTaskAcceptanceCheckTest extends TestCase
             ->expectsOutputToContain('cannot contain ".."')->assertFailed();
 
         $this->artisan('orchestrator:task-forbid-file', ['task' => 999, 'file' => 'README.md'])
+            ->expectsOutputToContain('Task not found.')->assertFailed();
+    }
+
+    public function test_it_adds_normalized_text_and_regex_expectations_only_once(): void
+    {
+        $task = $this->task(null);
+
+        $this->artisan('orchestrator:task-expect-text', ['task' => $task->id, 'file' => '.\\docs\\guide.md', 'text' => 'Required text'])->assertSuccessful();
+        $this->artisan('orchestrator:task-expect-text', ['task' => $task->id, 'file' => 'docs/guide.md', 'text' => 'Required text'])->assertSuccessful();
+        $this->assertSame([['file' => 'docs/guide.md', 'text' => 'Required text']], $task->fresh()->expected_texts);
+
+        $this->artisan('orchestrator:task-expect-regex', ['task' => $task->id, 'file' => '.\\docs\\guide.md', 'pattern' => '/Required\\s+text/'])->assertSuccessful();
+        $this->assertSame([['file' => 'docs/guide.md', 'pattern' => '/Required\\s+text/']], $task->fresh()->expected_regexes);
+
+        $this->artisan('orchestrator:task-expect-text', ['task' => $task->id, 'file' => '../outside.md', 'text' => 'Nope'])
+            ->expectsOutputToContain('cannot contain ".."')->assertFailed();
+        $this->artisan('orchestrator:task-expect-regex', ['task' => 999, 'file' => 'docs/guide.md', 'pattern' => '/Guide/'])
             ->expectsOutputToContain('Task not found.')->assertFailed();
     }
 
@@ -134,6 +152,52 @@ class OrchestratorTaskAcceptanceCheckTest extends TestCase
         $this->assertStringContainsString('`README.md`', $artifact);
     }
 
+    public function test_it_passes_content_expectations_and_includes_them_in_the_prompt(): void
+    {
+        Storage::fake('local');
+        $worktree = $this->root.DIRECTORY_SEPARATOR.'worktree';
+        File::ensureDirectoryExists($worktree.DIRECTORY_SEPARATOR.'docs');
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.'docs'.DIRECTORY_SEPARATOR.'guide.md', "Guide\nRequired text\n");
+        $task = $this->task(null, $worktree, null, [['file' => 'docs/guide.md', 'text' => 'Required text']], [['file' => 'docs/guide.md', 'pattern' => '/^Guide$/m']]);
+
+        $this->artisan('orchestrator:task-acceptance-check', ['task' => $task->id])->assertSuccessful();
+
+        $artifact = Storage::disk('local')->get("orchestrator/tasks/{$task->id}/acceptance.md");
+        $this->assertStringContainsString('## Configured content checks', $artifact);
+        $this->assertStringContainsString('## Passed content checks', $artifact);
+        $this->assertStringContainsString('docs/guide.md contains literal text Required text', $artifact);
+        $this->assertStringContainsString('docs/guide.md matches regex /^Guide$/m', $artifact);
+        $prompt = app(PromptBuilder::class)->build($task->fresh());
+        $this->assertStringContainsString('## Expected content', $prompt);
+        $this->assertStringContainsString('`docs/guide.md` must contain literal text: `Required text`', $prompt);
+        $this->assertStringContainsString('`docs/guide.md` must match regex: `/^Guide$/m`', $prompt);
+    }
+
+    public function test_it_fails_content_expectations_for_missing_text_nonmatching_and_invalid_regexes(): void
+    {
+        Storage::fake('local');
+        $worktree = $this->root.DIRECTORY_SEPARATOR.'worktree';
+        File::ensureDirectoryExists($worktree.DIRECTORY_SEPARATOR.'docs');
+        file_put_contents($worktree.DIRECTORY_SEPARATOR.'docs'.DIRECTORY_SEPARATOR.'guide.md', "Guide\n");
+        $task = $this->task(null, $worktree, null, [
+            ['file' => 'docs/missing.md', 'text' => 'Required text'],
+            ['file' => 'docs/guide.md', 'text' => 'Required text'],
+        ], [
+            ['file' => 'docs/guide.md', 'pattern' => '/Required/'],
+            ['file' => 'docs/missing.md', 'pattern' => '/[/'],
+        ]);
+
+        $this->artisan('orchestrator:task-acceptance-check', ['task' => $task->id])->assertFailed();
+
+        $artifact = Storage::disk('local')->get("orchestrator/tasks/{$task->id}/acceptance.md");
+        $this->assertStringContainsString('file is missing or unreadable', $artifact);
+        $this->assertStringContainsString('literal text is absent', $artifact);
+        $this->assertStringContainsString('regex does not match', $artifact);
+        $this->assertStringContainsString('## Invalid regex checks', $artifact);
+        $this->assertStringContainsString('invalid regex', $artifact);
+        $this->assertStringContainsString('Next action: Create missing expected files, satisfy content expectations', $artifact);
+    }
+
     /** @return string */
     private function gitWorktree(): string
     {
@@ -155,8 +219,13 @@ class OrchestratorTaskAcceptanceCheckTest extends TestCase
         return $worktree;
     }
 
-    /** @param array<int, string>|null $expectedFiles @param array<int, string>|null $forbiddenFiles */
-    private function task(?array $expectedFiles, ?string $worktree = null, ?array $forbiddenFiles = null): OrchestratorTask
+    /**
+     * @param  array<int, string>|null  $expectedFiles
+     * @param  array<int, string>|null  $forbiddenFiles
+     * @param  array<int, array{file: string, text: string}>|null  $expectedTexts
+     * @param  array<int, array{file: string, pattern: string}>|null  $expectedRegexes
+     */
+    private function task(?array $expectedFiles, ?string $worktree = null, ?array $forbiddenFiles = null, ?array $expectedTexts = null, ?array $expectedRegexes = null): OrchestratorTask
     {
         $project = OrchestratorProject::create([
             'name' => 'project-'.uniqid(),
@@ -170,6 +239,8 @@ class OrchestratorTaskAcceptanceCheckTest extends TestCase
             'worktree_path' => $worktree,
             'expected_files' => $expectedFiles,
             'forbidden_files' => $forbiddenFiles,
+            'expected_texts' => $expectedTexts,
+            'expected_regexes' => $expectedRegexes,
         ]);
     }
 }

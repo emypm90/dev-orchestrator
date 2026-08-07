@@ -46,9 +46,11 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 | Command | Behavior |
 | --- | --- |
 | `orchestrator:project-add {name} {repo_path}` | Validates and registers a local Git worktree. Options: `--default-branch`, `--test`, `--lint`, `--rules`. |
-| `orchestrator:task-create {project} {title}` | Creates a `draft` task. Options: `--description`, `--acceptance`, repeatable `--expected-file=relative/path`, repeatable `--forbid-file=relative/path`, `--autonomy=low|medium|high`. File paths are normalized and reject absolute or `..` traversal paths. |
+| `orchestrator:task-create {project} {title}` | Creates a `draft` task. Options: `--description`, `--acceptance`, repeatable `--expected-file=relative/path`, repeatable `--forbid-file=relative/path`, `--autonomy=low|medium|high`. File paths are normalized and reject absolute or `..` traversal paths. Content expectations are added after creation so file/text and file/pattern values remain unambiguous. |
 | `orchestrator:task-expect-file {task} {file}` | Adds one relative expected file after task creation. Duplicate paths are ignored. |
 | `orchestrator:task-forbid-file {task} {file}` | Adds one relative file that must remain untouched after task creation. Duplicate paths are ignored. |
+| `orchestrator:task-expect-text {task} {file} {text}` | Adds literal text that must appear in a relative file. Duplicate file/text pairs are ignored. |
+| `orchestrator:task-expect-regex {task} {file} {pattern}` | Adds a PCRE pattern that must match a relative file. Duplicate file/pattern pairs are ignored; invalid patterns are reported by the acceptance check. |
 | `orchestrator:task-prepare {task}` | Creates `ai/task-{id}-{slug}` and a sibling worktree `{repo}-task-{id}`. Saves `prompt.md`. It refuses existing worktree paths. |
 | `orchestrator:task-run {task}` | Regenerates the prompt and invokes `opencode run --dir <worktree> <prompt>` when available. No commit or push is performed. |
 | `orchestrator:task-batch-run {tasks*}` | Runs independent `prepared`, `blocked`, or `failed` tasks with `--concurrency=1..4` (default `2`). `draft` tasks require `--prepare`; `completed` tasks are skipped with a warning; `running` and `archived` tasks are refused. Options: `--prepare`, `--verify`, `--acceptance`, `--review`. Saves a batch artifact and never archives tasks. |
@@ -71,7 +73,7 @@ Each task's local artifacts are stored under `storage/app/private/orchestrator/t
 - `prompt.md`: structured OpenCode task prompt, including rules and safety constraints.
 - `run.log`: OpenCode output or the missing-CLI explanation.
 - `verification.md`: test and lint commands, output, exit codes, durations, directories, and timestamps. The latest result is linked from reviews and retained in archives and weekly reports.
-- `acceptance.md`: expected files, found and missing files, forbidden files, clean and violated forbidden files, all touched files, directory used, timestamps, status, and the next action. `passed` means only that the configured checks passed.
+- `acceptance.md`: expected files, found and missing files, forbidden files, clean and violated forbidden files, content checks (configured, passed, failed, and invalid regexes), all touched files, directory used, timestamps, status, and the next action. `passed` means only that the configured checks passed.
 - `review.md`: Git status, diff stat, modified files, and the agent summary.
 - `decision.md`: the human approval, rejection, or revision request with notes, review link, verification status, and worktree location.
 - `revision-{n}.md`: the rerun prompt with the original task, latest decision, review and verification references, and additional instructions.
@@ -93,10 +95,12 @@ Declare objective file outputs when creating a task, or add one later:
 .\bin\artisan.ps1 orchestrator:task-create my-app "Document batch runs" --expected-file=docs\batch-run-happy-path.md --forbid-file=README.md
 .\bin\artisan.ps1 orchestrator:task-expect-file 2 docs\batch-run-troubleshooting.md
 .\bin\artisan.ps1 orchestrator:task-forbid-file 2 composer.lock
+.\bin\artisan.ps1 orchestrator:task-expect-text 2 docs\batch-run-happy-path.md "The command never archives tasks."
+.\bin\artisan.ps1 orchestrator:task-expect-regex 2 docs\batch-run-happy-path.md '/orchestrator:task-batch-run.*--concurrency/'
 .\bin\artisan.ps1 orchestrator:task-acceptance-check 2
 ```
 
-The check uses the existing task worktree when available; otherwise it uses the registered project repository. It reports `passed` when every expected file exists and every forbidden file is untouched. It reports `failed` when an expected file is missing or a forbidden path appears in `git diff --name-only`, `git diff --cached --name-only`, or `git ls-files --others --exclude-standard`. It reports `skipped` only when neither expected nor forbidden files are configured. A failed or skipped standalone check returns non-zero for scripts and CI-style automation.
+The check uses the existing task worktree when available; otherwise it uses the registered project repository. It reports `passed` when every expected file exists, every forbidden file is untouched, every literal text is present, and every regex matches. It reports `failed` when a content-check file is missing or unreadable, literal text is absent, a regex does not match or is invalid, an expected file is missing, or a forbidden path appears in `git diff --name-only`, `git diff --cached --name-only`, or `git ls-files --others --exclude-standard`. It reports `skipped` only when no expected files, forbidden files, text checks, or regex checks are configured. A failed or skipped standalone check returns non-zero for scripts and CI-style automation.
 
 Forbidden files catch unwanted edits such as changing `README.md` while creating `docs\batch-run-happy-path.md`. They are not a substitute for human review: a passing result does not evaluate content, tests, design, or whether the task should be approved.
 

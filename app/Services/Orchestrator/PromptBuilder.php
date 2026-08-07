@@ -33,6 +33,9 @@ Autonomy level: {$task->autonomy}
 ## Forbidden files
 {$this->forbiddenFiles($task)}
 
+## Expected content
+{$this->expectedContent($task)}
+
 ## Verification commands
 Test: {$project->test_command}
 Lint: {$project->lint_command}
@@ -103,6 +106,21 @@ PROMPT;
         return $files === []
             ? 'No machine-readable forbidden files are configured.'
             : implode("\n", array_map(fn (string $file): string => "- `{$file}` must remain untouched.", $files));
+    }
+
+    private function expectedContent(OrchestratorTask $task): string
+    {
+        $texts = $task->expected_texts ?? [];
+        $regexes = $task->expected_regexes ?? [];
+
+        if ($texts === [] && $regexes === []) {
+            return 'No machine-readable content expectations are configured.';
+        }
+
+        return implode("\n", [
+            ...array_map(fn (array $expectation): string => "- `{$expectation['file']}` must contain literal text: `{$expectation['text']}`", $texts),
+            ...array_map(fn (array $expectation): string => "- `{$expectation['file']}` must match regex: `{$expectation['pattern']}`", $regexes),
+        ]);
     }
 
     private function artifactLocation(OrchestratorTask $task, string $file): ?string

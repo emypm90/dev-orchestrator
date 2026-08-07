@@ -10,7 +10,7 @@ class OrchestratorTaskAcceptanceCheck extends Command
 {
     protected $signature = 'orchestrator:task-acceptance-check {task : Task ID}';
 
-    protected $description = 'Check a task has its configured expected and forbidden files';
+    protected $description = 'Check a task has its configured file and content expectations';
 
     public function handle(AcceptanceChecker $checks): int
     {

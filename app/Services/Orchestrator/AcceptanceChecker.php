@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
 class AcceptanceChecker
 {
     /**
-     * @return array{status: string, path: string, directory: string, found: array<int, string>, missing: array<int, string>, clean: array<int, string>, violated: array<int, string>, touched: array<int, string>}
+     * @return array{status: string, path: string, directory: string, found: array<int, string>, missing: array<int, string>, clean: array<int, string>, violated: array<int, string>, touched: array<int, string>, content_configured: array<int, string>, content_passed: array<int, string>, content_failed: array<int, string>, invalid_regexes: array<int, string>}
      */
     public function check(OrchestratorTask $task): array
     {
@@ -18,6 +18,8 @@ class AcceptanceChecker
             : $task->project->repo_path;
         $expected = $task->expected_files ?? [];
         $forbidden = $task->forbidden_files ?? [];
+        $expectedTexts = $task->expected_texts ?? [];
+        $expectedRegexes = $task->expected_regexes ?? [];
         $found = [];
         $missing = [];
 
@@ -32,11 +34,12 @@ class AcceptanceChecker
         $touched = $this->changedFiles($directory);
         $violated = array_values(array_intersect($forbidden, $touched));
         $clean = array_values(array_diff($forbidden, $violated));
-        $status = $expected === [] && $forbidden === []
+        [$contentConfigured, $contentPassed, $contentFailed, $invalidRegexes] = $this->contentChecks($directory, $expectedTexts, $expectedRegexes);
+        $status = $expected === [] && $forbidden === [] && $contentConfigured === []
             ? 'skipped'
-            : ($missing === [] && $violated === [] ? 'passed' : 'failed');
+            : ($missing === [] && $violated === [] && $contentFailed === [] ? 'passed' : 'failed');
         $path = "orchestrator/tasks/{$task->id}/acceptance.md";
-        Storage::disk('local')->put($path, $this->markdown($task, $status, $directory, $expected, $found, $missing, $forbidden, $clean, $violated, $touched));
+        Storage::disk('local')->put($path, $this->markdown($task, $status, $directory, $expected, $found, $missing, $forbidden, $clean, $violated, $touched, $contentConfigured, $contentPassed, $contentFailed, $invalidRegexes));
         $absolutePath = Storage::disk('local')->path($path);
 
         $task->update([
@@ -45,7 +48,13 @@ class AcceptanceChecker
             'last_acceptance_path' => $absolutePath,
         ]);
 
-        return compact('status', 'directory', 'found', 'missing', 'clean', 'violated', 'touched') + ['path' => $absolutePath];
+        return compact('status', 'directory', 'found', 'missing', 'clean', 'violated', 'touched') + [
+            'path' => $absolutePath,
+            'content_configured' => $contentConfigured,
+            'content_passed' => $contentPassed,
+            'content_failed' => $contentFailed,
+            'invalid_regexes' => $invalidRegexes,
+        ];
     }
 
     /**
@@ -56,13 +65,17 @@ class AcceptanceChecker
      * @param  array<int, string>  $clean
      * @param  array<int, string>  $violated
      * @param  array<int, string>  $touched
+     * @param  array<int, string>  $contentConfigured
+     * @param  array<int, string>  $contentPassed
+     * @param  array<int, string>  $contentFailed
+     * @param  array<int, string>  $invalidRegexes
      */
-    private function markdown(OrchestratorTask $task, string $status, string $directory, array $expected, array $found, array $missing, array $forbidden, array $clean, array $violated, array $touched): string
+    private function markdown(OrchestratorTask $task, string $status, string $directory, array $expected, array $found, array $missing, array $forbidden, array $clean, array $violated, array $touched, array $contentConfigured, array $contentPassed, array $contentFailed, array $invalidRegexes): string
     {
         $nextAction = match ($status) {
             'passed' => 'Continue with human review; this objective file check does not approve the task.',
-            'failed' => 'Create missing expected files and revert forbidden file changes, then rerun this acceptance check.',
-            default => 'Configure expected files with orchestrator:task-expect-file or forbidden files with orchestrator:task-forbid-file, then rerun this check.',
+            'failed' => 'Create missing expected files, satisfy content expectations, and revert forbidden file changes, then rerun this acceptance check.',
+            default => 'Configure expected files, forbidden files, expected text, or expected regex checks, then rerun this check.',
         };
 
         return "# Acceptance check for task {$task->id}\n\n"
@@ -77,7 +90,79 @@ class AcceptanceChecker
             ."## Forbidden files\n".$this->files($forbidden)."\n"
             ."## Clean forbidden files\n".$this->files($clean)."\n"
             ."## Violated forbidden files\n".$this->files($violated)."\n"
-            ."## Touched files\n".$this->files($touched)."\n";
+            ."## Touched files\n".$this->files($touched)."\n"
+            ."## Configured content checks\n".$this->files($contentConfigured)."\n"
+            ."## Passed content checks\n".$this->files($contentPassed)."\n"
+            ."## Failed content checks\n".$this->files($contentFailed)."\n"
+            ."## Invalid regex checks\n".$this->files($invalidRegexes)."\n";
+    }
+
+    /**
+     * @param  array<int, array{file: string, text: string}>  $texts
+     * @param  array<int, array{file: string, pattern: string}>  $regexes
+     * @return array{array<int, string>, array<int, string>, array<int, string>, array<int, string>}
+     */
+    private function contentChecks(string $directory, array $texts, array $regexes): array
+    {
+        $configured = [];
+        $passed = [];
+        $failed = [];
+        $invalidRegexes = [];
+
+        foreach ($texts as $expectation) {
+            $summary = "{$expectation['file']} contains literal text {$expectation['text']}";
+            $configured[] = $summary;
+            $content = $this->fileContent($directory, $expectation['file']);
+
+            if ($content === null) {
+                $failed[] = "{$summary} (file is missing or unreadable)";
+            } elseif (str_contains($content, $expectation['text'])) {
+                $passed[] = $summary;
+            } else {
+                $failed[] = "{$summary} (literal text is absent)";
+            }
+        }
+
+        foreach ($regexes as $expectation) {
+            $summary = "{$expectation['file']} matches regex {$expectation['pattern']}";
+            $configured[] = $summary;
+
+            if (@preg_match($expectation['pattern'], '') === false) {
+                $failed[] = "{$summary} (invalid regex)";
+                $invalidRegexes[] = $summary;
+
+                continue;
+            }
+
+            $content = $this->fileContent($directory, $expectation['file']);
+
+            if ($content === null) {
+                $failed[] = "{$summary} (file is missing or unreadable)";
+
+                continue;
+            }
+
+            if (preg_match($expectation['pattern'], $content) === 1) {
+                $passed[] = $summary;
+            } else {
+                $failed[] = "{$summary} (regex does not match)";
+            }
+        }
+
+        return [$configured, $passed, $failed, $invalidRegexes];
+    }
+
+    private function fileContent(string $directory, string $file): ?string
+    {
+        $path = $directory.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $file);
+
+        if (! is_file($path) || ! is_readable($path)) {
+            return null;
+        }
+
+        $content = file_get_contents($path);
+
+        return $content === false ? null : $content;
     }
 
     /** @return array<int, string> */
