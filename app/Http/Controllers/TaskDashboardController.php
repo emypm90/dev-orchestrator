@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\OrchestratorProject;
 use App\Models\OrchestratorTask;
 use App\Services\Orchestrator\ReviewDecisionRecorder;
+use App\Services\Orchestrator\TaskArchiver;
 use App\Services\Orchestrator\TaskStatusPresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -78,11 +79,16 @@ class TaskDashboardController extends Controller
                 'name' => $artifact,
                 'exists' => $disk->exists("{$directory}/{$artifact}"),
             ]);
+        $artifactsByName = $artifactNames->keyBy('name');
 
         return view('tasks.show', [
             'task' => $task->load('project'),
             'presenter' => $presenter,
             'artifacts' => $artifactNames,
+            'archiveArtifact' => $artifactsByName->get('archive.md'),
+            'canArchive' => in_array($task->review_decision, ['approved', 'rejected'], true)
+                && $task->archived_at === null
+                && $task->status !== 'archived',
         ]);
     }
 
@@ -117,6 +123,23 @@ class TaskDashboardController extends Controller
         $decisions->record($task->loadMissing('project'), 'rejected', ($validated['reason'] ?? null) ?: 'No se proporcionó un motivo.');
 
         return redirect()->route('tasks.show', $task)->with('success', "La tarea {$task->id} fue rechazada. Decisión registrada.");
+    }
+
+    public function archive(OrchestratorTask $task, TaskArchiver $archiver)
+    {
+        if ($task->status === 'archived' || $task->archived_at !== null) {
+            return redirect()->route('tasks.show', $task)->with('success', "La tarea {$task->id} ya estaba archivada.");
+        }
+
+        if (! in_array($task->review_decision, ['approved', 'rejected'], true)) {
+            return redirect()->route('tasks.show', $task)->withErrors([
+                'archive' => 'Solo podés archivar una tarea aprobada o rechazada en la revisión humana.',
+            ]);
+        }
+
+        $archiver->archive($task->loadMissing('project'));
+
+        return redirect()->route('tasks.show', $task)->with('success', "La tarea {$task->id} fue archivada. Se conservaron sus artefactos y su worktree.");
     }
 
     public function showArtifact(Request $request, OrchestratorTask $task)

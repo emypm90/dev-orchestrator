@@ -43,7 +43,7 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 
 ## Running the local environment
 
-Use the smallest command that matches what you need. The web dashboard is optimized for a developer review flow: start with the attention queue, see why a task needs attention, open its available artifacts in a low-strain read-only viewer, then record a safe local human decision. It shows task status and attention counts, task details, available task artifacts, and configured acceptance expectations. Task detail pages support only approve, request revision, or reject. The UI does not run, rerun, archive, modify Git state, commit, push, or merge.
+Use the smallest command that matches what you need. The web dashboard is optimized for a developer review flow: start with the attention queue, see why a task needs attention, open its available artifacts in a low-strain read-only viewer, then record a safe local human decision. It shows task status and attention counts, task details, available task artifacts, and configured acceptance expectations. After approving or rejecting a task, its detail page can archive the final history and artifacts. Web archiving never removes the worktree or modifies Git state; the UI does not run, rerun, commit, push, or merge.
 
 ### Dashboard only
 
@@ -74,7 +74,7 @@ That Composer script starts:
 | `php artisan pail --timeout=0` | Streams Laravel logs in the terminal. |
 | `npm run dev` | Starts Vite for frontend assets and hot reload. |
 
-Rule of thumb: use `.\bin\artisan.ps1 serve` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. The web UI only records approve, needs-revision, and reject decisions; use the CLI for every other task action.
+Rule of thumb: use `.\bin\artisan.ps1 serve` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. The web UI records approve, needs-revision, and reject decisions, and archives final approved or rejected tasks without removing their worktrees; use the CLI for every other task action.
 
 Task detail pages list the task-local artifacts that are available. Select an artifact to read it in the browser; the viewer only serves the documented artifact names and numbered `revision-{n}.md` files from that task's private storage directory. It renders escaped, read-only text and cannot browse arbitrary local paths.
 
@@ -171,4 +171,4 @@ Prepare multiple task IDs. Every task has its own branch and sibling worktree, s
 
 - It assumes the configured default branch exists locally; it does not fetch remotes.
 - The dashboard only records safe human review decisions and does not replace review of artifacts.
-- The web UI cannot run, rerun, archive, delete, commit, push, merge, or otherwise modify Git state.
+- The web UI can archive only finally reviewed tasks and never removes their worktrees or modifies Git state; it cannot run, rerun, delete, commit, push, or merge.

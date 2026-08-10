@@ -6,6 +6,8 @@
         $artifactByName = collect($artifacts)->keyBy('name');
         $verificationArtifact = $artifactByName->get('verification.md');
         $acceptanceArtifact = $artifactByName->get('acceptance.md');
+        $archiveArtifact = $artifactByName->get('archive.md');
+        $canArchive = in_array($task->review_decision, ['approved', 'rejected'], true) && $task->archived_at === null;
         $requiresAttention = $task->last_verification_status === 'failed'
             || $task->last_acceptance_status === 'failed'
             || $task->review_decision === 'needs_revision'
@@ -148,6 +150,27 @@
                 <button class="reject-button" type="submit">Registrar rechazo</button>
             </form>
         </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-header"><div><h2>Archivar tarea</h2><p class="panel-copy">El archivo conserva el historial final y los artefactos de esta tarea.</p></div></div>
+        <p class="safety-notice review-safety"><span class="safety-icon">&#9672;</span><span>Archivar no elimina el worktree ni modifica el estado de Git.</span></p>
+        @if ($task->archived_at !== null)
+            <p class="panel-copy">La tarea fue archivada el {{ $task->archived_at->toDateTimeString() }}.
+                @if ($archiveArtifact['exists'])
+                    <a href="{{ route('tasks.artifacts.show', ['task' => $task, 'name' => 'archive.md']) }}">Ver archive.md</a>.
+                @endif
+            </p>
+        @elseif ($canArchive)
+            <form method="POST" action="{{ route('tasks.archive', $task) }}">
+                @csrf
+                <button type="submit">Archivar tarea</button>
+            </form>
+        @elseif ($task->review_decision === 'needs_revision')
+            <p class="panel-copy">No se puede archivar: la tarea requiere una nueva revisión humana.</p>
+        @else
+            <p class="panel-copy">No se puede archivar hasta registrar una aprobación o un rechazo en la revisión humana.</p>
+        @endif
     </section>
 
     <section class="panel">

@@ -147,11 +147,11 @@
             <p class="safety-notice"><span class="safety-icon">&#9672;</span><span><strong>MVP local.</strong> Las decisiones de revisión se registran localmente y nunca modifican el estado de Git.</span></p>
         </header>
         @if (session('success'))
-            <div class="flash"><strong>Decisión registrada</strong><span>{{ session('success') }}</span></div>
+            <div class="flash"><strong>Actualización registrada</strong><span>{{ session('success') }}</span></div>
         @endif
         @if ($errors->any())
             <div class="errors">
-                <strong>No se registró la decisión de revisión.</strong>
+                <strong>No se pudo completar la acción.</strong>
                 <div>@foreach ($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>
             </div>
         @endif
