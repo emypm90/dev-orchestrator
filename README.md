@@ -53,7 +53,7 @@ The concurrency cap is deliberately limited to `1` through `4` (default `2`). Ea
 
 ## Running the local environment
 
-Use the smallest command that matches what you need. The web dashboard is optimized for a developer review flow: start with the attention queue, see why a task needs attention, open its available artifacts in a low-strain read-only viewer, then record a safe local human decision. It shows task status and attention counts, task details, available task artifacts, and configured acceptance expectations. After approving or rejecting a task, its detail page can archive the final history and artifacts. Web archiving never removes the worktree or modifies Git state; the UI does not run, rerun, commit, push, or merge.
+Use the smallest command that matches what you need. The web dashboard is optimized for a developer review flow: start with the attention queue, see why a task needs attention, inspect its worktree diff and available artifacts in read-only viewers, then record a safe local human decision. The diff viewer includes tracked and untracked files when available and does not stage, reset, checkout, commit, push, or otherwise modify Git. It shows task status and attention counts, task details, available task artifacts, and configured acceptance expectations. After approving or rejecting a task, its detail page can archive the final history and artifacts. Web archiving never removes the worktree or modifies Git state; the UI does not run, rerun, commit, push, or merge.
 
 ### Dashboard only
 
@@ -90,7 +90,7 @@ That Composer script starts:
 
 Rule of thumb: use `.\bin\dev-orchestrator.ps1 -Port 8001` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. The launcher avoids the generic PHP configuration conflict, while `composer dev` still depends on the PHP available on `PATH`. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. The web UI records approve, needs-revision, and reject decisions, and archives final approved or rejected tasks without removing their worktrees; use the CLI for every other task action.
 
-Task detail pages list the task-local artifacts that are available. Select an artifact to read it in the browser; the viewer only serves the documented artifact names and numbered `revision-{n}.md` files from that task's private storage directory. It renders escaped, read-only text and cannot browse arbitrary local paths.
+Task detail pages list the task-local artifacts that are available. Select **Ver diff del worktree** to inspect current changes before deciding; missing, removed, or non-Git worktrees show a safe explanatory message. Select an artifact to read it in the browser; the viewer only serves the documented artifact names and numbered `revision-{n}.md` files from that task's private storage directory. It renders escaped, read-only text and cannot browse arbitrary local paths.
 
 ## Commands
 

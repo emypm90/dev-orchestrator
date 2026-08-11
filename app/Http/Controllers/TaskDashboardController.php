@@ -6,6 +6,7 @@ use App\Models\OrchestratorProject;
 use App\Models\OrchestratorTask;
 use App\Services\Orchestrator\ReviewDecisionRecorder;
 use App\Services\Orchestrator\TaskArchiver;
+use App\Services\Orchestrator\TaskDiffViewer;
 use App\Services\Orchestrator\TaskStatusPresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -89,6 +90,17 @@ class TaskDashboardController extends Controller
             'canArchive' => in_array($task->review_decision, ['approved', 'rejected'], true)
                 && $task->archived_at === null
                 && $task->status !== 'archived',
+        ]);
+    }
+
+    public function diff(OrchestratorTask $task, TaskDiffViewer $diffViewer)
+    {
+        $diff = $diffViewer->collect($task);
+
+        return view('tasks.diff', [
+            'task' => $task->load('project'),
+            'files' => $diff['files'],
+            'warning' => $diff['warning'],
         ]);
     }
 

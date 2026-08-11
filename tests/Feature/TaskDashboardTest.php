@@ -77,6 +77,8 @@ class TaskDashboardTest extends TestCase
             ->assertSee('Por qué requiere atención')
             ->assertSee('La comprobación de aceptación falló.')
             ->assertSee('C:\\worktrees\\task-1')
+            ->assertSee(route('tasks.diff', $task))
+            ->assertSee('Ver diff del worktree')
             ->assertSee('Add the quick start steps.')
             ->assertSee('Detalles técnicos')
             ->assertSee('Requiere revisión')

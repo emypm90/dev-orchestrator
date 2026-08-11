@@ -114,6 +114,9 @@
 
     <section class="panel">
         <div class="panel-header"><div><h2>Evidencia de revisión</h2><p class="panel-copy">Seguí la evidencia recomendada de arriba. Las entradas atenuadas todavía no se generaron para esta tarea.</p></div></div>
+        @if (filled($task->worktree_path))
+            <a class="button-link diff-link" href="{{ route('tasks.diff', $task) }}">Ver diff del worktree</a>
+        @endif
         <ul class="artifact-grid">
             @foreach ($artifacts as $artifact)
                 <li>

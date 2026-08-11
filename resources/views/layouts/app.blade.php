@@ -141,6 +141,9 @@
         .viewer-lights i { display: block; width: 8px; height: 8px; background: #475569; border-radius: 50%; }
         .viewer-lights i:first-child { background: #fb7185; } .viewer-lights i:nth-child(2) { background: #fbbf24; } .viewer-lights i:last-child { background: #34d399; }
         .artifact-content { max-height: min(70vh, 880px); margin: 0; padding: clamp(16px, 3vw, 26px); overflow: auto; color: #dbeafe; background: #09111e; font: .84rem/1.7 "Cascadia Code", "SFMono-Regular", Consolas, monospace; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .diff-link { margin: 0 0 14px; }
+        .diff-warning { margin: 14px 0 0; padding: 10px 12px; color: #fde68a; background: rgba(146, 64, 14, .18); border: 1px solid rgba(251, 191, 36, .32); border-radius: 8px; font-size: .84rem; }
+        .diff-file { padding: 0; overflow: hidden; border-color: rgba(103, 232, 249, .28); }
         @media (max-width: 800px) { .topline { align-items: start; flex-direction: column; } .safety-notice { max-width: none; } .dashboard-grid, .decision-summary, .review-actions, .ticket-form { grid-template-columns: 1fr; } .artifact-meta { grid-template-columns: 1fr; } }
         @media (max-width: 600px) { .shell { padding-top: 14px; } .topline { margin-bottom: 18px; } .detail { grid-template-columns: 1fr; } .detail dt { padding-bottom: 2px; border-bottom: 0; } .detail dd { padding-top: 2px; } .expectations, .summary-evidence ol { grid-template-columns: 1fr; } .panel-header { display: block; } .panel-header > * + * { margin-top: 8px; } }
     </style>
