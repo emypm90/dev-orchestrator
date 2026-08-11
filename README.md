@@ -14,6 +14,16 @@ Local-first Laravel MVP for preparing independent developer tasks in Git worktre
 From this project directory in PowerShell:
 
 ```powershell
+.\bin\dev-orchestrator.ps1 -Port 8001
+```
+
+This single command configures the project-local MAMP PHP environment, checks the SQLite extensions, creates `.env` and the SQLite database when missing, installs dependencies when needed, generates an application key, runs migrations, and serves the dashboard at `http://127.0.0.1:8001`. Press Ctrl+C to stop it.
+
+Use `-SetupOnly` to prepare the environment without starting the server. Use `-NoInstall` when dependencies are already present and you want to skip Composer and npm installation.
+
+After the dashboard is running, use the CLI commands below for task management:
+
+```powershell
 .\bin\artisan.ps1 migrate
 .\bin\artisan.ps1 orchestrator:project-add my-app C:\code\my-app --default-branch=main --test="php artisan test" --lint="vendor\bin\pint" --rules="Keep changes local. Do not modify deployment files."
 .\bin\artisan.ps1 orchestrator:task-create my-app "Add task export" --description="Export task records as CSV." --acceptance="CSV download contains the selected task fields." --expected-file=docs\task-export.md --autonomy=medium
@@ -47,13 +57,13 @@ Use the smallest command that matches what you need. The web dashboard is optimi
 
 ### Dashboard only
 
-Use this when you want to open the local dashboard. It starts the Laravel HTTP server and nothing else:
+Use the launcher for the local dashboard. It prepares the required PHP, SQLite, Laravel, and optional frontend dependencies before it starts the server:
 
 ```powershell
-.\bin\artisan.ps1 serve
+.\bin\dev-orchestrator.ps1 -Port 8001
 ```
 
-Then open `http://127.0.0.1:8000`.
+Then open `http://127.0.0.1:8001`. Add `-SetupOnly` to run preparation without serving, or `-NoInstall` to skip dependency installation when `vendor` and `node_modules` already exist.
 
 This is enough for the current dashboard because the Blade views use server-rendered HTML and do not require a frontend dev server.
 
@@ -74,7 +84,7 @@ That Composer script starts:
 | `php artisan pail --timeout=0` | Streams Laravel logs in the terminal. |
 | `npm run dev` | Starts Vite for frontend assets and hot reload. |
 
-Rule of thumb: use `.\bin\artisan.ps1 serve` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. The web UI records approve, needs-revision, and reject decisions, and archives final approved or rejected tasks without removing their worktrees; use the CLI for every other task action.
+Rule of thumb: use `.\bin\dev-orchestrator.ps1 -Port 8001` to inspect the dashboard quickly; use `composer dev` when changing the application or frontend. The launcher avoids the generic PHP configuration conflict, while `composer dev` still depends on the PHP available on `PATH`. Use the project, status, and attention filters to narrow the task list. Select a task title to view its detail page. The web UI records approve, needs-revision, and reject decisions, and archives final approved or rejected tasks without removing their worktrees; use the CLI for every other task action.
 
 Task detail pages list the task-local artifacts that are available. Select an artifact to read it in the browser; the viewer only serves the documented artifact names and numbered `revision-{n}.md` files from that task's private storage directory. It renders escaped, read-only text and cannot browse arbitrary local paths.
 
