@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\OperationalTicket;
+use App\Models\OrchestratorProject;
+use App\Models\OrchestratorTask;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class OperationalTicketController extends Controller
@@ -52,7 +55,53 @@ class OperationalTicketController extends Controller
 
     public function show(OperationalTicket $operationalTicket)
     {
-        return view('operational-tickets.show', ['ticket' => $operationalTicket]);
+        return view('operational-tickets.show', ['ticket' => $operationalTicket->load('orchestratorTask')]);
+    }
+
+    public function update(Request $request, OperationalTicket $operationalTicket)
+    {
+        $operationalTicket->update($this->validatedTicket($request));
+
+        return redirect()->route('operational-tickets.show', $operationalTicket)
+            ->with('success', "El ticket #{$operationalTicket->id} quedó actualizado.");
+    }
+
+    public function convert(OperationalTicket $operationalTicket)
+    {
+        return DB::transaction(function () use ($operationalTicket) {
+            $ticket = OperationalTicket::query()->lockForUpdate()->findOrFail($operationalTicket->id);
+
+            if ($ticket->orchestrator_task_id !== null) {
+                return redirect()->route('tasks.show', $ticket->orchestrator_task_id)
+                    ->with('success', "El ticket #{$ticket->id} ya tiene una tarea de ejecución vinculada.");
+            }
+
+            if ($ticket->status !== 'ready') {
+                return redirect()->route('operational-tickets.show', $ticket)
+                    ->withErrors(['conversion' => 'Primero completá el triage y marcá el ticket como listo antes de crear una tarea de ejecución.']);
+            }
+
+            $project = OrchestratorProject::query()->where('name', $ticket->project_name)->first();
+            if ($project === null) {
+                return redirect()->route('operational-tickets.show', $ticket)
+                    ->withErrors(['conversion' => "No hay un proyecto registrado con el nombre \"{$ticket->project_name}\"."]);
+            }
+
+            $task = OrchestratorTask::create([
+                'project_id' => $project->id,
+                'title' => $ticket->title,
+                'description' => $this->taskDescription($ticket),
+                'autonomy' => 'medium',
+            ]);
+
+            $ticket->update([
+                'orchestrator_task_id' => $task->id,
+                'status' => 'implementing',
+            ]);
+
+            return redirect()->route('tasks.show', $task)
+                ->with('success', "El ticket #{$ticket->id} ahora se ejecuta como la tarea #{$task->id}.");
+        });
     }
 
     private function validatedTicket(Request $request): array
@@ -71,6 +120,24 @@ class OperationalTicketController extends Controller
             'project_name.required' => 'Indicá el proyecto.',
             'title.required' => 'Indicá un título para el pedido.',
             'original_text.required' => 'Pegá el pedido o contexto original.',
+        ]);
+    }
+
+    private function taskDescription(OperationalTicket $ticket): string
+    {
+        return implode("\n", [
+            "Ticket operativo #{$ticket->id}",
+            "Título: {$ticket->title}",
+            "Proyecto: {$ticket->project_name}",
+            'Solicitante: '.($ticket->requester ?: 'Sin indicar'),
+            'Prioridad: '.OperationalTicket::priorityLabel($ticket->priority),
+            'Fecha límite: '.($ticket->due_date?->format('Y-m-d') ?: 'Sin fecha'),
+            '',
+            'Objetivo:',
+            $ticket->objective ?: 'Sin definir.',
+            '',
+            'Contexto original:',
+            $ticket->original_text,
         ]);
     }
 }

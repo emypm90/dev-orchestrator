@@ -4,10 +4,12 @@
 
 1. Cargá manualmente cada pedido en **Tickets operativos**, preservando quién lo pidió, de dónde llegó y el texto original.
 2. Hacé triage antes de implementar: aclarar objetivo, prioridad, fecha límite y cualquier definición faltante.
-3. Recién cuando el pedido esté listo, podrá convertirse en una tarea de ejecución del orquestador.
+3. Actualizá el ticket desde su detalle. Cuando el triage esté completo, marcá su estado como **Lista**.
+4. Con el proyecto ya registrado en el orquestador y el ticket en **Lista**, usá **Crear tarea de ejecución**. Esto genera una única tarea `draft`, conserva el contexto operativo en su descripción y cambia el ticket a **En implementación**.
+5. Si el ticket ya tiene una tarea vinculada, seguí el enlace existente: volver a ejecutar la conversión no crea una tarea duplicada.
 
 ## Alcance de este MVP
 
 La carga inicial es manual. Email, WhatsApp y reuniones son orígenes que se registran para no perder trazabilidad, pero todavía no existen integraciones ni importaciones automáticas.
 
-Un ticket operativo representa la conversación y la decisión de qué hacer. Una `OrchestratorTask` representa el trabajo técnico aislado, sus verificaciones y su revisión. En un slice posterior, un ticket refinado podrá alimentar la creación de una tarea de ejecución sin duplicar contexto a mano.
+Un ticket operativo representa la conversación y la decisión de qué hacer. Una `OrchestratorTask` representa el trabajo técnico aislado, sus verificaciones y su revisión. La conversión requiere que `project_name` coincida exactamente con un proyecto registrado; si no existe, el ticket no cambia y se informa el problema para resolverlo antes de implementar.

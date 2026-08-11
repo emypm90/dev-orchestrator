@@ -9,6 +9,8 @@ Route::get('/operational-tickets', [OperationalTicketController::class, 'index']
 Route::get('/operational-tickets/create', [OperationalTicketController::class, 'create'])->name('operational-tickets.create');
 Route::post('/operational-tickets', [OperationalTicketController::class, 'store'])->name('operational-tickets.store');
 Route::get('/operational-tickets/{operationalTicket}', [OperationalTicketController::class, 'show'])->name('operational-tickets.show');
+Route::patch('/operational-tickets/{operationalTicket}', [OperationalTicketController::class, 'update'])->name('operational-tickets.update');
+Route::post('/operational-tickets/{operationalTicket}/convert', [OperationalTicketController::class, 'convert'])->name('operational-tickets.convert');
 Route::get('/tasks/{task}', [TaskDashboardController::class, 'show'])->name('tasks.show');
 Route::post('/tasks/{task}/approve', [TaskDashboardController::class, 'approve'])->name('tasks.approve');
 Route::post('/tasks/{task}/revision', [TaskDashboardController::class, 'revision'])->name('tasks.revision');

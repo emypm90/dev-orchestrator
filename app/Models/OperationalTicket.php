@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OperationalTicket extends Model
 {
@@ -17,7 +18,7 @@ class OperationalTicket extends Model
 
     protected $fillable = [
         'project_name', 'source', 'requester', 'title', 'original_text', 'objective',
-        'priority', 'status', 'due_date',
+        'priority', 'status', 'due_date', 'orchestrator_task_id',
     ];
 
     protected function casts(): array
@@ -59,5 +60,10 @@ class OperationalTicket extends Model
             'hours_pending' => 'Registrá las horas y cerrá el ticket.',
             'done' => 'Ticket cerrado. Conservá este contexto como historial operativo.',
         };
+    }
+
+    public function orchestratorTask(): BelongsTo
+    {
+        return $this->belongsTo(OrchestratorTask::class);
     }
 }
