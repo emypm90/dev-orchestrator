@@ -49,4 +49,42 @@
             <p class="muted">Completá el triage y cambiá el estado a "Lista" para habilitar la creación de la tarea de ejecución.</p>
         @endif
     </section>
+    @if ($ticket->supportsReportingAndHours())
+        <section class="panel">
+            <div class="panel-header"><div><h2>Informe de cierre</h2><p class="panel-copy">Este mensaje se prepara solo en este equipo. Copialo y envialo manualmente: no se envía por email, WhatsApp ni ninguna API.</p></div></div>
+            <form class="ticket-form" method="POST" action="{{ route('operational-tickets.report.update', $ticket) }}">
+                @csrf
+                @method('PATCH')
+                <label class="wide-field">Mensaje para {{ $ticket->requester ?: 'la persona solicitante' }}<textarea name="report_message" required>{{ old('report_message', $ticket->report_message ?: $ticket->defaultReportMessage()) }}</textarea></label>
+                <div class="wide-field"><button type="submit">Guardar mensaje local</button></div>
+            </form>
+            @if ($ticket->status !== 'done')
+                <form method="POST" action="{{ route('operational-tickets.report.mark-reported', $ticket) }}">
+                    @csrf
+                    <input type="hidden" name="report_message" value="{{ $ticket->report_message ?: $ticket->defaultReportMessage() }}">
+                    <button type="submit">Marcar informe enviado manualmente</button>
+                </form>
+            @endif
+        </section>
+        <section class="panel">
+            <div class="panel-header"><div><h2>Horas</h2><p class="panel-copy">Las horas se guardan únicamente en SQLite local. No se suben ni se registran en una plataforma externa.</p></div></div>
+            <form class="ticket-form" method="POST" action="{{ route('operational-tickets.hours.update', $ticket) }}">
+                @csrf
+                @method('PATCH')
+                <label>Estimación de horas <span class="muted">(opcional)</span><input type="number" name="hours_estimate" min="0" max="999.99" step="0.01" value="{{ old('hours_estimate', $ticket->hours_estimate) }}"></label>
+                <label class="wide-field">Notas de horas <span class="muted">(opcional)</span><textarea name="hours_notes">{{ old('hours_notes', $ticket->hours_notes) }}</textarea></label>
+                <div class="wide-field"><button type="submit">Guardar horas localmente</button></div>
+            </form>
+            @if ($ticket->status !== 'done')
+                <form method="POST" action="{{ route('operational-tickets.hours.mark-recorded', $ticket) }}">
+                    @csrf
+                    <input type="hidden" name="hours_estimate" value="{{ $ticket->hours_estimate }}">
+                    <input type="hidden" name="hours_notes" value="{{ $ticket->hours_notes }}">
+                    <button type="submit">Marcar horas registradas manualmente</button>
+                </form>
+            @else
+                <p class="muted">Cerrado: informe y horas quedaron en el historial local del ticket.</p>
+            @endif
+        </section>
+    @endif
 @endsection

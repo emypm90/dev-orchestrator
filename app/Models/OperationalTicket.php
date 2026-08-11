@@ -18,12 +18,18 @@ class OperationalTicket extends Model
 
     protected $fillable = [
         'project_name', 'source', 'requester', 'title', 'original_text', 'objective',
-        'priority', 'status', 'due_date', 'orchestrator_task_id',
+        'priority', 'status', 'due_date', 'orchestrator_task_id', 'report_message',
+        'reported_at', 'hours_estimate', 'hours_notes', 'hours_recorded_at',
     ];
 
     protected function casts(): array
     {
-        return ['due_date' => 'date'];
+        return [
+            'due_date' => 'date',
+            'reported_at' => 'datetime',
+            'hours_estimate' => 'decimal:2',
+            'hours_recorded_at' => 'datetime',
+        ];
     }
 
     public static function sourceLabel(string $source): string
@@ -55,11 +61,36 @@ class OperationalTicket extends Model
             'implementing' => 'SeguÍ el avance y registrá bloqueos o cambios de alcance.',
             'needs_attention' => 'Resolvé el bloqueo o pedí la definición que falta.',
             'testing' => 'Validá el resultado antes de preparar el informe.',
-            'ready_to_report' => 'Comunicá el resultado a la persona solicitante.',
-            'reported' => 'Registrá las horas pendientes o cerrá el ticket.',
-            'hours_pending' => 'Registrá las horas y cerrá el ticket.',
-            'done' => 'Ticket cerrado. Conservá este contexto como historial operativo.',
+            'ready_to_report' => 'Prepará el informe y envialo manualmente a la persona solicitante.',
+            'reported' => 'Registrá las horas manualmente para cerrar el ticket.',
+            'hours_pending' => 'Registrá las horas manualmente para cerrar el ticket.',
+            'done' => 'Ticket cerrado.',
         };
+    }
+
+    public function supportsReportingAndHours(): bool
+    {
+        return in_array($this->status, ['ready_to_report', 'reported', 'hours_pending', 'done'], true);
+    }
+
+    public function defaultReportMessage(): string
+    {
+        $lines = [
+            'Hola'.($this->requester ? " {$this->requester}" : '').',',
+            '',
+            "Quedó completado el pedido \"{$this->title}\" para {$this->project_name}.",
+            'Objetivo: '.($this->objective ?: 'sin objetivo operativo registrado.'),
+        ];
+
+        if ($this->orchestratorTask !== null) {
+            $lines[] = "Tarea de ejecución vinculada: #{$this->orchestratorTask->id} ({$this->orchestratorTask->title}).";
+            $lines[] = 'Decisión de revisión: '.($this->orchestratorTask->review_decision ?: 'sin decisión registrada').'.';
+        }
+
+        $lines[] = '';
+        $lines[] = 'Quedo atento/a a cualquier ajuste.';
+
+        return implode("\n", $lines);
     }
 
     public function orchestratorTask(): BelongsTo

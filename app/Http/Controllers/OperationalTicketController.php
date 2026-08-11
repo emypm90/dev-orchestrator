@@ -101,6 +101,51 @@ class OperationalTicketController extends Controller
         });
     }
 
+    public function updateReport(Request $request, OperationalTicket $operationalTicket)
+    {
+        $operationalTicket->update($request->validate([
+            'report_message' => ['required', 'string'],
+        ]));
+
+        return redirect()->route('operational-tickets.show', $operationalTicket)
+            ->with('success', 'El mensaje quedó preparado localmente. Enviarlo sigue siendo una acción manual.');
+    }
+
+    public function markReported(Request $request, OperationalTicket $operationalTicket)
+    {
+        $data = $request->validate([
+            'report_message' => ['required', 'string'],
+        ]);
+
+        $operationalTicket->update([
+            'report_message' => $data['report_message'],
+            'reported_at' => now(),
+            'status' => $operationalTicket->status === 'done' ? 'done' : 'hours_pending',
+        ]);
+
+        return redirect()->route('operational-tickets.show', $operationalTicket)
+            ->with('success', 'El informe quedó marcado como enviado manualmente. Ahora registrá las horas localmente.');
+    }
+
+    public function updateHours(Request $request, OperationalTicket $operationalTicket)
+    {
+        $operationalTicket->update($this->validatedHours($request));
+
+        return redirect()->route('operational-tickets.show', $operationalTicket)
+            ->with('success', 'Las horas quedaron guardadas localmente. No se subieron a ninguna plataforma.');
+    }
+
+    public function markHoursRecorded(Request $request, OperationalTicket $operationalTicket)
+    {
+        $operationalTicket->update(array_merge($this->validatedHours($request), [
+            'hours_recorded_at' => now(),
+            'status' => 'done',
+        ]));
+
+        return redirect()->route('operational-tickets.show', $operationalTicket)
+            ->with('success', 'Las horas quedaron marcadas como registradas localmente y el ticket se cerró.');
+    }
+
     private function validatedTicket(Request $request): array
     {
         return $request->validate([
@@ -135,6 +180,14 @@ class OperationalTicketController extends Controller
             '',
             'Contexto original:',
             $ticket->original_text,
+        ]);
+    }
+
+    private function validatedHours(Request $request): array
+    {
+        return $request->validate([
+            'hours_estimate' => ['nullable', 'numeric', 'min:0', 'max:999.99'],
+            'hours_notes' => ['nullable', 'string'],
         ]);
     }
 }

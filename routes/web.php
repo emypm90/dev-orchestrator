@@ -11,6 +11,10 @@ Route::post('/operational-tickets', [OperationalTicketController::class, 'store'
 Route::get('/operational-tickets/{operationalTicket}', [OperationalTicketController::class, 'show'])->name('operational-tickets.show');
 Route::patch('/operational-tickets/{operationalTicket}', [OperationalTicketController::class, 'update'])->name('operational-tickets.update');
 Route::post('/operational-tickets/{operationalTicket}/convert', [OperationalTicketController::class, 'convert'])->name('operational-tickets.convert');
+Route::patch('/operational-tickets/{operationalTicket}/report', [OperationalTicketController::class, 'updateReport'])->name('operational-tickets.report.update');
+Route::post('/operational-tickets/{operationalTicket}/report/mark-reported', [OperationalTicketController::class, 'markReported'])->name('operational-tickets.report.mark-reported');
+Route::patch('/operational-tickets/{operationalTicket}/hours', [OperationalTicketController::class, 'updateHours'])->name('operational-tickets.hours.update');
+Route::post('/operational-tickets/{operationalTicket}/hours/mark-recorded', [OperationalTicketController::class, 'markHoursRecorded'])->name('operational-tickets.hours.mark-recorded');
 Route::get('/tasks/{task}', [TaskDashboardController::class, 'show'])->name('tasks.show');
 Route::get('/tasks/{task}/diff', [TaskDashboardController::class, 'diff'])->name('tasks.diff');
 Route::post('/tasks/{task}/approve', [TaskDashboardController::class, 'approve'])->name('tasks.approve');

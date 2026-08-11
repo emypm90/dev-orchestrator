@@ -219,6 +219,77 @@ class OperationalTicketWebTest extends TestCase
         $this->assertDatabaseCount('orchestrator_tasks', 1);
     }
 
+    public function test_ready_to_report_ticket_renders_a_deterministic_default_report_template(): void
+    {
+        $project = $this->project('sitio-cliente');
+        $task = OrchestratorTask::create([
+            'project_id' => $project->id,
+            'title' => 'Corregir pie de página',
+            'description' => 'Implementación terminada.',
+            'review_decision' => 'approved',
+        ]);
+        $ticket = $this->ticket([
+            'status' => 'ready_to_report',
+            'objective' => 'Restaurar el enlace legal.',
+            'orchestrator_task_id' => $task->id,
+        ]);
+
+        $this->get(route('operational-tickets.show', $ticket))
+            ->assertOk()
+            ->assertSee('Informe de cierre')
+            ->assertSee('Quedó completado el pedido &quot;Corregir pie de página&quot; para sitio-cliente.', false)
+            ->assertSee('Objetivo: Restaurar el enlace legal.')
+            ->assertSee('Tarea de ejecución vinculada: #'.$task->id.' (Corregir pie de página).')
+            ->assertSee('Decisión de revisión: approved.')
+            ->assertSee('no se envía por email, WhatsApp ni ninguna API.');
+    }
+
+    public function test_report_message_is_saved_and_marking_it_reported_moves_ticket_to_hours_pending_locally(): void
+    {
+        $ticket = $this->ticket(['status' => 'ready_to_report']);
+        $message = 'Hola Marina, el enlace legal ya quedó corregido.';
+
+        $this->patch(route('operational-tickets.report.update', $ticket), ['report_message' => $message])
+            ->assertRedirect(route('operational-tickets.show', $ticket));
+
+        $this->assertDatabaseHas('operational_tickets', [
+            'id' => $ticket->id,
+            'report_message' => $message,
+            'status' => 'ready_to_report',
+            'reported_at' => null,
+        ]);
+
+        $this->post(route('operational-tickets.report.mark-reported', $ticket), ['report_message' => $message])
+            ->assertRedirect(route('operational-tickets.show', $ticket));
+
+        $this->assertDatabaseHas('operational_tickets', [
+            'id' => $ticket->id,
+            'report_message' => $message,
+            'status' => 'hours_pending',
+        ]);
+        $this->assertNotNull($ticket->fresh()->reported_at);
+    }
+
+    public function test_hours_are_persisted_locally_and_marking_recorded_closes_ticket(): void
+    {
+        $ticket = $this->ticket(['status' => 'hours_pending']);
+        $hours = ['hours_estimate' => '2.50', 'hours_notes' => 'Incluye revisión y comunicación manual.'];
+
+        $this->patch(route('operational-tickets.hours.update', $ticket), $hours)
+            ->assertRedirect(route('operational-tickets.show', $ticket));
+
+        $this->assertDatabaseHas('operational_tickets', array_merge(['id' => $ticket->id], $hours, [
+            'status' => 'hours_pending',
+            'hours_recorded_at' => null,
+        ]));
+
+        $this->post(route('operational-tickets.hours.mark-recorded', $ticket), $hours)
+            ->assertRedirect(route('operational-tickets.show', $ticket));
+
+        $this->assertDatabaseHas('operational_tickets', array_merge(['id' => $ticket->id], $hours, ['status' => 'done']));
+        $this->assertNotNull($ticket->fresh()->hours_recorded_at);
+    }
+
     private function ticket(array $attributes = []): OperationalTicket
     {
         return OperationalTicket::create(array_merge([
