@@ -150,6 +150,30 @@ class OperationalTicketWebTest extends TestCase
         $this->assertDatabaseHas('operational_tickets', ['id' => $ticket->id, 'status' => 'triage', 'orchestrator_task_id' => null]);
     }
 
+    public function test_attention_filter_includes_operational_action_states_and_excludes_closed_items_without_signals(): void
+    {
+        $this->ticket(['title' => 'Inbox ticket', 'status' => 'inbox', 'priority' => 'normal', 'due_date' => null]);
+        $this->ticket(['title' => 'Triage ticket', 'status' => 'triage', 'priority' => 'normal', 'due_date' => null]);
+        $this->ticket(['title' => 'Ready ticket', 'status' => 'ready', 'priority' => 'normal', 'due_date' => null]);
+        $this->ticket(['title' => 'Needs attention ticket', 'status' => 'needs_attention', 'priority' => 'normal', 'due_date' => null]);
+        $this->ticket(['title' => 'Urgent reported ticket', 'status' => 'reported', 'priority' => 'urgent', 'due_date' => null]);
+        $this->ticket(['title' => 'Overdue reported ticket', 'status' => 'reported', 'priority' => 'normal', 'due_date' => today()->subDay()->toDateString()]);
+        $this->ticket(['title' => 'Done without signal', 'status' => 'done', 'priority' => 'normal', 'due_date' => null]);
+        $this->ticket(['title' => 'Reported without signal', 'status' => 'reported', 'priority' => 'normal', 'due_date' => null]);
+
+        $this->get(route('operational-tickets.index', ['attention' => 1]))
+            ->assertOk()
+            ->assertSee('Inbox ticket')
+            ->assertSee('Triage ticket')
+            ->assertSee('Ready ticket')
+            ->assertSee('Needs attention ticket')
+            ->assertSee('Urgent reported ticket')
+            ->assertSee('Overdue reported ticket')
+            ->assertDontSee('Done without signal')
+            ->assertDontSee('Reported without signal')
+            ->assertSee(route('operational-tickets.index', ['attention' => 1]));
+    }
+
     public function test_ready_ticket_converts_to_one_linked_execution_task(): void
     {
         $project = $this->project('sitio-cliente');

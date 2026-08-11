@@ -27,12 +27,15 @@
 
         <section class="panel">
             <div class="panel-header">
-                <div><h2>Cola de atención</h2><p class="panel-copy">Priorizá revisiones, comprobaciones fallidas, bloqueos y revisiones solicitadas.</p></div>
+                <div><h2>Cola de atención</h2><p class="panel-copy">Priorizá revisiones, fallas, bloqueos y revisiones solicitadas.</p></div>
             </div>
             <div class="counts">
-                @foreach ($attentionCounts as $label => $count)
-                    <div class="count attention-count"><strong>{{ $count }}</strong><span>{{ $label }}</span></div>
-                @endforeach
+                <a class="count attention-count" href="{{ route('tasks.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['executionTasks']['count'] }}</strong><span>requieren acción</span></a>
+                <a class="count attention-count" href="{{ route('tasks.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['executionTasks']['humanReview'] }}</strong><span>revisión humana</span></a>
+                <a class="count attention-count" href="{{ route('tasks.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['executionTasks']['failed'] }}</strong><span>ejecuciones fallidas</span></a>
+                <a class="count attention-count" href="{{ route('tasks.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['executionTasks']['verificationFailed'] + $attentionSummary['executionTasks']['acceptanceFailed'] }}</strong><span>comprobaciones fallidas</span></a>
+                <a class="count attention-count" href="{{ route('tasks.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['executionTasks']['needsRevision'] }}</strong><span>requieren revisión</span></a>
+                <a class="count attention-count" href="{{ route('tasks.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['executionTasks']['blocked'] }}</strong><span>bloqueadas</span></a>
             </div>
         </section>
     </div>

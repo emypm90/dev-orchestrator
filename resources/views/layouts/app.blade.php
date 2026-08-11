@@ -62,6 +62,7 @@
         .top-nav { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; font-size: .77rem; }
         .top-nav a { color: #a9c9de; text-decoration: none; }
         .top-nav a:hover { color: #67e8f9; text-decoration: underline; }
+        .nav-badge { display: inline-grid; min-width: 18px; height: 18px; margin-left: 4px; padding: 0 5px; color: #fecdd3; background: rgba(159, 18, 57, .52); border: 1px solid rgba(251, 113, 133, .5); border-radius: 999px; place-items: center; font-size: .65rem; font-weight: 800; }
         .button-link { display: inline-flex; align-items: center; min-height: 38px; padding: 7px 10px; color: #e0f7ff; background: linear-gradient(135deg, #0e7490, #3730a3); border: 1px solid rgba(103, 232, 249, .45); border-radius: 7px; box-shadow: 0 5px 16px rgba(8, 145, 178, .17); font-size: .84rem; font-weight: 760; text-decoration: none; white-space: nowrap; }
         .ticket-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
         .ticket-form textarea { width: 100%; min-height: 110px; resize: vertical; }
@@ -156,7 +157,7 @@
                 <div>
                     <p class="eyebrow">Orquestador de desarrollo local</p>
                     <h1><a href="{{ route('tasks.index') }}">{{ $heading ?? 'Panel de tareas' }}</a></h1>
-                    <nav class="top-nav" aria-label="Navegación principal"><a href="{{ route('tasks.index') }}">Tareas de ejecución</a><a href="{{ route('operational-tickets.index') }}">Tickets operativos</a></nav>
+                    <nav class="top-nav" aria-label="Navegación principal"><a href="{{ route('tasks.index', ['attention' => 1]) }}">Tareas de ejecución <span class="nav-badge">{{ $layoutAttentionSummary['executionTasks']['count'] }}</span></a><a href="{{ route('operational-tickets.index', ['attention' => 1]) }}">Tickets operativos <span class="nav-badge">{{ $layoutAttentionSummary['operationalTickets']['count'] }}</span></a></nav>
                 </div>
             </div>
             <p class="safety-notice"><span class="safety-icon">&#9672;</span><span><strong>MVP local.</strong> Las decisiones de revisión se registran localmente y nunca modifican el estado de Git.</span></p>

@@ -5,14 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\OperationalTicket;
 use App\Models\OrchestratorProject;
 use App\Models\OrchestratorTask;
-use Illuminate\Database\Eloquent\Builder;
+use App\Services\Orchestrator\AttentionSummary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class OperationalTicketController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, AttentionSummary $attention)
     {
         $query = OperationalTicket::query()->orderByDesc('updated_at');
 
@@ -25,11 +25,7 @@ class OperationalTicketController extends Controller
         }
 
         if ($request->boolean('attention')) {
-            $query->where(function (Builder $attentionQuery): void {
-                $attentionQuery->where('status', 'needs_attention')
-                    ->orWhere('priority', 'urgent')
-                    ->orWhere(fn (Builder $dueQuery) => $dueQuery->whereNotNull('due_date')->whereDate('due_date', '<=', today()));
-            });
+            $query->whereIn('id', $attention->operationalTicketQuery()->select('id'));
         }
 
         $tickets = $query->get();
@@ -37,6 +33,7 @@ class OperationalTicketController extends Controller
         return view('operational-tickets.index', [
             'tickets' => $tickets,
             'statusCounts' => $tickets->countBy('status')->sortKeys(),
+            'attentionSummary' => $attention->forDashboard(),
         ]);
     }
 

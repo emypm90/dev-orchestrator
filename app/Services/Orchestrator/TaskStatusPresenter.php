@@ -14,7 +14,7 @@ class TaskStatusPresenter
     public function needsAttention(OrchestratorTask $task): bool
     {
         return $this->needsHumanReview($task)
-            || in_array($task->status, ['running', 'blocked', 'needs_revision'], true)
+            || in_array($task->status, ['running', 'blocked', 'failed', 'needs_revision'], true)
             || $task->last_verification_status === 'failed'
             || $task->last_acceptance_status === 'failed';
     }

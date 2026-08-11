@@ -8,6 +8,18 @@
     </section>
 
     <section class="panel">
+        <div class="panel-header"><div><h2>Cola de atención</h2><p class="panel-copy">Resolvé primero el triage, los pedidos listos para convertir, urgencias y vencimientos.</p></div><a class="button-link" href="{{ route('operational-tickets.index', ['attention' => 1]) }}">Ver cola completa</a></div>
+        <div class="counts">
+            <a class="count attention-count" href="{{ route('operational-tickets.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['operationalTickets']['count'] }}</strong><span>requieren acción</span></a>
+            <a class="count attention-count" href="{{ route('operational-tickets.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['operationalTickets']['triage'] }}</strong><span>en bandeja o triage</span></a>
+            <a class="count attention-count" href="{{ route('operational-tickets.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['operationalTickets']['ready'] }}</strong><span>listas para convertir</span></a>
+            <a class="count attention-count" href="{{ route('operational-tickets.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['operationalTickets']['needsAttention'] }}</strong><span>requieren atención</span></a>
+            <a class="count attention-count" href="{{ route('operational-tickets.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['operationalTickets']['urgent'] }}</strong><span>urgentes</span></a>
+            <a class="count attention-count" href="{{ route('operational-tickets.index', ['attention' => 1]) }}"><strong>{{ $attentionSummary['operationalTickets']['due'] }}</strong><span>vencen hoy o vencidos</span></a>
+        </div>
+    </section>
+
+    <section class="panel">
         <div class="panel-header"><div><h2>Estado de la operación</h2><p class="panel-copy">Los tickets visibles se agrupan por su estado operativo actual.</p></div><a class="button-link" href="{{ route('operational-tickets.create') }}">Cargar pedido manual</a></div>
         <div class="counts">
             @forelse ($statusCounts as $status => $count)
@@ -30,7 +42,7 @@
     </section>
 
     <section class="panel">
-        <div class="panel-header"><div><h2>Bandeja operativa <span class="muted">{{ $tickets->count() }} visibles</span></h2><p class="panel-copy">Atención incluye tickets urgentes, vencidos, que vencen hoy o marcados como "requiere atención".</p></div></div>
+        <div class="panel-header"><div><h2>Bandeja operativa <span class="muted">{{ $tickets->count() }} visibles</span></h2><p class="panel-copy">Atención incluye bandeja, triage, tickets listos, urgentes, vencidos, que vencen hoy o marcados como "requiere atención".</p></div></div>
         <div class="table-wrap">
             <table>
                 <thead><tr><th>ID</th><th>Proyecto</th><th>Pedido</th><th>Prioridad</th><th>Origen</th><th>Solicitante</th><th>Estado</th><th>Vence</th></tr></thead>

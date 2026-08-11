@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\OrchestratorProject;
 use App\Models\OrchestratorTask;
 use App\Services\Orchestrator\ReviewDecisionRecorder;
+use App\Services\Orchestrator\AttentionSummary;
 use App\Services\Orchestrator\TaskArchiver;
 use App\Services\Orchestrator\TaskDiffViewer;
 use App\Services\Orchestrator\TaskStatusPresenter;
@@ -26,7 +27,7 @@ class TaskDashboardController extends Controller
         'final.patch',
     ];
 
-    public function index(Request $request, TaskStatusPresenter $presenter)
+    public function index(Request $request, TaskStatusPresenter $presenter, AttentionSummary $attention)
     {
         $query = OrchestratorTask::with('project')->orderByDesc('updated_at');
 
@@ -39,12 +40,7 @@ class TaskDashboardController extends Controller
         }
 
         if ($request->boolean('attention')) {
-            $query->where(function (Builder $attentionQuery): void {
-                $attentionQuery->whereIn('status', ['running', 'blocked', 'needs_revision'])
-                    ->orWhere('last_verification_status', 'failed')
-                    ->orWhere('last_acceptance_status', 'failed')
-                    ->orWhere(fn (Builder $reviewQuery) => $reviewQuery->where('status', 'completed')->whereNull('review_decision'));
-            });
+            $query->whereIn('id', $attention->executionTaskQuery()->select('id'));
         }
 
         $tasks = $query->get();
@@ -53,14 +49,7 @@ class TaskDashboardController extends Controller
             'tasks' => $tasks,
             'projects' => OrchestratorProject::orderBy('name')->get(),
             'statusCounts' => $tasks->countBy('status')->sortKeys(),
-            'attentionCounts' => [
-                'revisión humana' => $tasks->filter(fn (OrchestratorTask $task) => $presenter->needsHumanReview($task))->count(),
-                'verificación fallida' => $tasks->where('last_verification_status', 'failed')->count(),
-                'aceptación fallida' => $tasks->where('last_acceptance_status', 'failed')->count(),
-                'requiere revisión' => $tasks->where('status', 'needs_revision')->count(),
-                'en ejecución' => $tasks->where('status', 'running')->count(),
-                'bloqueada' => $tasks->where('status', 'blocked')->count(),
-            ],
+            'attentionSummary' => $attention->forDashboard(),
             'presenter' => $presenter,
         ]);
     }

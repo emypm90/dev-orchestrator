@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\OrchestratorProject;
 use App\Models\OrchestratorTask;
+use App\Models\OperationalTicket;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -39,6 +40,38 @@ class TaskDashboardTest extends TestCase
             ->assertSee('Review release notes')
             ->assertSee(route('tasks.show', $task))
             ->assertSee('Revisá los artefactos; después aprobá, rechazá o pedí una revisión.');
+    }
+
+    public function test_dashboard_and_layout_show_global_attention_counts_with_filtered_links(): void
+    {
+        $project = $this->project('attention-signals');
+        OrchestratorTask::create(['project_id' => $project->id, 'title' => 'Failed run', 'status' => 'failed']);
+        OrchestratorTask::create(['project_id' => $project->id, 'title' => 'Awaiting review', 'status' => 'completed']);
+        OperationalTicket::create([
+            'project_name' => 'attention-signals',
+            'source' => 'manual',
+            'title' => 'Triage this request',
+            'original_text' => 'Needs context.',
+            'priority' => 'normal',
+            'status' => 'inbox',
+        ]);
+        OperationalTicket::create([
+            'project_name' => 'attention-signals',
+            'source' => 'manual',
+            'title' => 'Urgent request',
+            'original_text' => 'Needs action now.',
+            'priority' => 'urgent',
+            'status' => 'reported',
+        ]);
+
+        $this->get(route('tasks.index'))
+            ->assertOk()
+            ->assertSee('Tareas de ejecución <span class="nav-badge">2</span>', false)
+            ->assertSee('Tickets operativos <span class="nav-badge">2</span>', false)
+            ->assertSee(route('tasks.index', ['attention' => 1]))
+            ->assertSee(route('operational-tickets.index', ['attention' => 1]))
+            ->assertSee('ejecuciones fallidas')
+            ->assertSee('requieren acción');
     }
 
     public function test_task_detail_shows_decision_summary_and_acceptance_expectations(): void

@@ -8,6 +8,12 @@
 4. Con el proyecto ya registrado en el orquestador y el ticket en **Lista**, usá **Crear tarea de ejecución**. Esto genera una única tarea `draft`, conserva el contexto operativo en su descripción y cambia el ticket a **En implementación**.
 5. Si el ticket ya tiene una tarea vinculada, seguí el enlace existente: volver a ejecutar la conversión no crea una tarea duplicada.
 
+## Cola de atención
+
+La navegación y ambos tableros muestran conteos locales que enlazan a sus vistas filtradas con `attention=1`. La cola operativa incluye tickets en bandeja, triage, listos para convertir, marcados como requiere atención, urgentes o con vencimiento para hoy o anterior. La cola de ejecución incluye tareas fallidas, bloqueadas, en ejecución, con revisión solicitada, con verificaciones o aceptación fallidas, y tareas completadas sin decisión humana.
+
+Estos avisos solo ordenan el trabajo que ya existe en SQLite: no generan notificaciones del sistema ni integraciones externas.
+
 ## Alcance de este MVP
 
 La carga inicial es manual. Email, WhatsApp y reuniones son orígenes que se registran para no perder trazabilidad, pero todavía no existen integraciones ni importaciones automáticas.
