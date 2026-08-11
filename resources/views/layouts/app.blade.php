@@ -59,6 +59,17 @@
         button { color: #e0f7ff; background: linear-gradient(135deg, #0e7490, #3730a3); border-color: rgba(103, 232, 249, .45); box-shadow: 0 5px 16px rgba(8, 145, 178, .17); cursor: pointer; font-weight: 760; }
         button:hover { filter: brightness(1.12); }
         .filter-link { align-self: center; font-size: .84rem; }
+        .top-nav { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; font-size: .77rem; }
+        .top-nav a { color: #a9c9de; text-decoration: none; }
+        .top-nav a:hover { color: #67e8f9; text-decoration: underline; }
+        .button-link { display: inline-flex; align-items: center; min-height: 38px; padding: 7px 10px; color: #e0f7ff; background: linear-gradient(135deg, #0e7490, #3730a3); border: 1px solid rgba(103, 232, 249, .45); border-radius: 7px; box-shadow: 0 5px 16px rgba(8, 145, 178, .17); font-size: .84rem; font-weight: 760; text-decoration: none; white-space: nowrap; }
+        .ticket-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .ticket-form textarea { width: 100%; min-height: 110px; resize: vertical; }
+        .wide-field { grid-column: 1 / -1; }
+        .request-context { padding: 15px; color: #dbeafe; background: rgba(15, 23, 42, .62); border: 1px solid rgba(100, 116, 139, .28); border-radius: 10px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .priority-low { color: #94a3b8; } .priority-normal { color: #67e8f9; } .priority-high { color: #fcd34d; background: rgba(146, 64, 14, .17); border-color: rgba(251, 191, 36, .32); } .priority-urgent, .status-needs_attention { color: #fda4af; background: rgba(159, 18, 57, .16); border-color: rgba(251, 113, 133, .35); }
+        .status-inbox, .status-triage, .status-ready_to_report { color: #67e8f9; background: rgba(8, 145, 178, .16); border-color: rgba(34, 211, 238, .34); } .status-ready, .status-testing, .status-reported { color: #fcd34d; background: rgba(146, 64, 14, .17); border-color: rgba(251, 191, 36, .32); } .status-implementing { color: #d8b4fe; background: rgba(107, 33, 168, .2); border-color: rgba(192, 132, 252, .34); } .status-hours_pending { color: #fb923c; } .status-done { color: #86efac; background: rgba(22, 101, 52, .2); border-color: rgba(74, 222, 128, .31); }
+        .due-overdue { color: #fda4af; font-weight: 700; }
         .table-wrap { overflow-x: auto; border: 1px solid rgba(100, 116, 139, .24); border-radius: 10px; }
         table { width: 100%; min-width: 1010px; border-collapse: collapse; font-size: .84rem; }
         th, td { padding: 13px 11px; text-align: left; vertical-align: middle; border-bottom: 1px solid rgba(100, 116, 139, .2); }
@@ -130,7 +141,7 @@
         .viewer-lights i { display: block; width: 8px; height: 8px; background: #475569; border-radius: 50%; }
         .viewer-lights i:first-child { background: #fb7185; } .viewer-lights i:nth-child(2) { background: #fbbf24; } .viewer-lights i:last-child { background: #34d399; }
         .artifact-content { max-height: min(70vh, 880px); margin: 0; padding: clamp(16px, 3vw, 26px); overflow: auto; color: #dbeafe; background: #09111e; font: .84rem/1.7 "Cascadia Code", "SFMono-Regular", Consolas, monospace; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
-        @media (max-width: 800px) { .topline { align-items: start; flex-direction: column; } .safety-notice { max-width: none; } .dashboard-grid, .decision-summary, .review-actions { grid-template-columns: 1fr; } .artifact-meta { grid-template-columns: 1fr; } }
+        @media (max-width: 800px) { .topline { align-items: start; flex-direction: column; } .safety-notice { max-width: none; } .dashboard-grid, .decision-summary, .review-actions, .ticket-form { grid-template-columns: 1fr; } .artifact-meta { grid-template-columns: 1fr; } }
         @media (max-width: 600px) { .shell { padding-top: 14px; } .topline { margin-bottom: 18px; } .detail { grid-template-columns: 1fr; } .detail dt { padding-bottom: 2px; border-bottom: 0; } .detail dd { padding-top: 2px; } .expectations, .summary-evidence ol { grid-template-columns: 1fr; } .panel-header { display: block; } .panel-header > * + * { margin-top: 8px; } }
     </style>
 </head>
@@ -142,6 +153,7 @@
                 <div>
                     <p class="eyebrow">Orquestador de desarrollo local</p>
                     <h1><a href="{{ route('tasks.index') }}">{{ $heading ?? 'Panel de tareas' }}</a></h1>
+                    <nav class="top-nav" aria-label="Navegación principal"><a href="{{ route('tasks.index') }}">Tareas de ejecución</a><a href="{{ route('operational-tickets.index') }}">Tickets operativos</a></nav>
                 </div>
             </div>
             <p class="safety-notice"><span class="safety-icon">&#9672;</span><span><strong>MVP local.</strong> Las decisiones de revisión se registran localmente y nunca modifican el estado de Git.</span></p>

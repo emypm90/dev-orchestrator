@@ -1,6 +1,6 @@
 # Dev Orchestrator
 
-Local-first Laravel MVP for preparing independent developer tasks in Git worktrees. It stores project and task metadata in SQLite, generates OpenCode prompts, and retains run and review artifacts. It never commits, stages, pushes, or changes Git configuration.
+Local-first Laravel MVP for preparing independent developer tasks in Git worktrees. It also includes a manual operational-ticket intake board for the daily 18dev workflow. It stores metadata in SQLite, generates OpenCode prompts, and retains run and review artifacts. It never commits, stages, pushes, or changes Git configuration.
 
 ## Requirements
 
@@ -66,6 +66,10 @@ Use the launcher for the local dashboard. It prepares the required PHP, SQLite, 
 Then open `http://127.0.0.1:8001`. Add `-SetupOnly` to run preparation without serving, or `-NoInstall` to skip dependency installation when `vendor` and `node_modules` already exist.
 
 This is enough for the current dashboard because the Blade views use server-rendered HTML and do not require a frontend dev server.
+
+### Tickets operativos
+
+Abrí **Tickets operativos** desde la navegación del dashboard para cargar pedidos manuales y hacerles triage antes de convertirlos en trabajo técnico. El flujo inicial y sus límites están documentados en [docs/operational-workflow.md](docs/operational-workflow.md).
 
 ### Full development environment
 
