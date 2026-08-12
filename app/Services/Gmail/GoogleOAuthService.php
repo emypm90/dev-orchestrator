@@ -55,6 +55,22 @@ class GoogleOAuthService
         return $response->json();
     }
 
+    public function refreshAccessToken(string $refreshToken): array
+    {
+        $response = $this->http->asForm()->post('https://oauth2.googleapis.com/token', [
+            'client_id' => config('services.google.client_id'),
+            'client_secret' => config('services.google.client_secret'),
+            'refresh_token' => $refreshToken,
+            'grant_type' => 'refresh_token',
+        ]);
+
+        if ($response->failed() || blank($response->json('access_token'))) {
+            throw new RuntimeException('Google no pudo renovar el acceso a Gmail.');
+        }
+
+        return $response->json();
+    }
+
     private function redirectUri(): string
     {
         $uri = config('services.google.redirect_uri');

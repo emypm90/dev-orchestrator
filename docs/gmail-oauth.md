@@ -1,15 +1,15 @@
 # Conectar Gmail con Google
 
-Esta integración guarda la autorización local de una cuenta Gmail o Google Workspace. Todavía no lee, descarga ni importa mensajes desde la API.
+Esta integración guarda la autorización local de una cuenta Gmail o Google Workspace y puede leer cadenas reales mediante la API de Gmail en modo solo lectura.
 
 ## Flujo actual por etapas
 
 1. OAuth conecta Gmail y almacena la autorización local.
-2. La pantalla de Gmail permite pegar una cadena completa para crear un borrador de ticket local con un generador determinista y testeable.
+2. La pantalla de Gmail permite buscar cadenas recientes, importar una seleccionada y crear un borrador de ticket local con un generador determinista y testeable. También permite pegar una cadena manualmente.
 3. El borrador presenta resumen, expectativas funcionales y preguntas abiertas para revisión explícita.
 4. Solo después de revisar se crea un ticket operativo en `triage`.
 
-Una etapa futura descargará cadenas reales de Gmail y las enviará al mismo servicio de borradores. Tampoco hay un proveedor de IA configurado en esta etapa: no se hacen llamadas externas para analizar el texto.
+Los hilos importados se normalizan y pasan por el mismo generador local determinista. Todavía no hay proveedor de IA: no se hacen llamadas externas para analizar el texto. Importar una cadena nunca crea un ticket; la revisión explícita sigue siendo obligatoria.
 
 ## Configuración en Google Cloud
 

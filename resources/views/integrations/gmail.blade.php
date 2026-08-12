@@ -4,7 +4,27 @@
     <section class="panel command-hero">
         <div class="hero-signal"><span class="signal-dot"></span>Integración local</div>
         <h2>Conectá Gmail para preparar la próxima bandeja de entrada</h2>
-        <p>La conexión autoriza lectura de Gmail y datos básicos del perfil. Mientras llega la importación desde la API, podés crear borradores locales desde una cadena completa pegada.</p>
+        <p>La conexión autoriza lectura de Gmail y datos básicos del perfil. Buscá cadenas reales, creá un borrador local y revisalo antes de crear un ticket.</p>
+    </section>
+    <section class="panel">
+        <div class="panel-header"><div><p class="section-kicker">Gmail de solo lectura</p><h2>Buscar cadenas recientes</h2><p class="panel-copy">La importación nunca crea un ticket automáticamente: primero abre el borrador para revisión.</p></div></div>
+        @if ($account?->status === 'connected')
+            <form method="get" action="{{ route('integrations.gmail.threads') }}" class="form-grid">
+                <label>Consulta Gmail <input name="query" value="{{ $query ?? 'in:inbox newer_than:30d' }}" placeholder="in:inbox newer_than:30d"></label>
+                <div><button type="submit">Buscar cadenas</button></div>
+            </form>
+            @isset($threads)
+                <div class="table-wrap"><table><thead><tr><th>Asunto</th><th>De</th><th>Fecha</th><th>Vista previa</th><th></th></tr></thead><tbody>
+                @forelse ($threads as $thread)
+                    <tr><td>{{ $thread['subject'] }}</td><td>{{ $thread['from'] }}</td><td>{{ $thread['date'] }}</td><td>{{ $thread['snippet'] }}</td><td><form method="post" action="{{ route('integrations.gmail.threads.import', $thread['id']) }}">@csrf <button type="submit">Crear borrador</button></form></td></tr>
+                @empty
+                    <tr><td colspan="5">No se encontraron cadenas para esta consulta.</td></tr>
+                @endforelse
+                </tbody></table></div>
+            @endisset
+        @else
+            <p class="panel-copy">Conectá Gmail para buscar e importar cadenas reales de solo lectura.</p>
+        @endif
     </section>
 
     <section class="panel">

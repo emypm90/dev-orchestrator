@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\EmailAccount;
+use App\Models\EmailThreadImport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -117,10 +118,143 @@ class GmailIntegrationTest extends TestCase
         $this->assertNull($account->refresh_token);
     }
 
+    public function test_thread_listing_requires_a_connected_account(): void
+    {
+        $this->get(route('integrations.gmail.threads'))
+            ->assertRedirect(route('integrations.gmail.index'))
+            ->assertSessionHasErrors('gmail');
+    }
+
+    public function test_thread_listing_reads_metadata_from_gmail_and_renders_it(): void
+    {
+        $this->connectedAccount();
+        Http::fake([
+            'https://gmail.googleapis.com/gmail/v1/users/me/threads/thread-123*' => Http::response([
+                'id' => 'thread-123',
+                'messages' => [[
+                    'snippet' => 'Necesitamos ajustar la pantalla.',
+                    'payload' => ['headers' => [
+                        ['name' => 'Subject', 'value' => 'Ajustar pantalla'],
+                        ['name' => 'From', 'value' => 'Lucia <lucia@example.com>'],
+                        ['name' => 'Date', 'value' => 'Tue, 12 Aug 2026 10:00:00 +0000'],
+                    ]],
+                ]],
+            ]),
+            'https://gmail.googleapis.com/gmail/v1/users/me/threads*' => Http::response([
+                'threads' => [['id' => 'thread-123']],
+            ]),
+        ]);
+
+        $this->get(route('integrations.gmail.threads', ['query' => 'in:inbox']))
+            ->assertOk()
+            ->assertSee('Ajustar pantalla')
+            ->assertSee('Lucia &lt;lucia@example.com&gt;', false)
+            ->assertSee('Necesitamos ajustar la pantalla.');
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_importing_a_gmail_thread_creates_a_review_draft(): void
+    {
+        $this->connectedAccount();
+        Http::fake([
+            'https://gmail.googleapis.com/gmail/v1/users/me/threads/thread-123*' => Http::response($this->fullThread()),
+        ]);
+
+        $response = $this->post(route('integrations.gmail.threads.import', 'thread-123'));
+
+        $import = EmailThreadImport::firstOrFail();
+        $response->assertRedirect(route('email-thread-imports.show', $import));
+        $this->assertSame('thread-123', $import->external_thread_id);
+        $this->assertSame('Corregir formulario de contacto', $import->subject);
+        $this->assertSame(['Lucia <lucia@example.com>', 'Equipo web <web@example.com>'], $import->participants);
+        $this->assertStringContainsString('El formulario debe mostrar el campo Empresa.', $import->raw_thread_text);
+        $this->assertSame('Corregir formulario de contacto', $import->proposed_ticket_payload['title']);
+    }
+
+    public function test_importing_the_same_gmail_thread_reuses_its_draft(): void
+    {
+        $this->connectedAccount();
+        Http::fake([
+            'https://gmail.googleapis.com/gmail/v1/users/me/threads/thread-123*' => Http::response($this->fullThread()),
+        ]);
+
+        $this->post(route('integrations.gmail.threads.import', 'thread-123'));
+        $this->post(route('integrations.gmail.threads.import', 'thread-123'));
+
+        $this->assertDatabaseCount('email_thread_imports', 1);
+    }
+
+    public function test_expired_token_is_refreshed_before_reading_gmail(): void
+    {
+        $account = $this->connectedAccount(['token_expires_at' => now()->subMinute()]);
+        $this->configureGoogle();
+        Http::fake([
+            'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'renewed-access-token', 'expires_in' => 3600]),
+            'https://gmail.googleapis.com/gmail/v1/users/me/threads*' => Http::response(['threads' => []]),
+        ]);
+
+        $this->get(route('integrations.gmail.threads'))->assertOk();
+
+        $account->refresh();
+        $this->assertSame('renewed-access-token', $account->access_token);
+        $this->assertTrue($account->token_expires_at->isFuture());
+        Http::assertSent(fn ($request) => $request->url() === 'https://oauth2.googleapis.com/token'
+            && $request['grant_type'] === 'refresh_token');
+    }
+
+    public function test_gmail_api_failure_is_shown_and_recorded_on_the_account(): void
+    {
+        $account = $this->connectedAccount();
+        Http::fake([
+            'https://gmail.googleapis.com/gmail/v1/users/me/threads*' => Http::response([], 500),
+        ]);
+
+        $this->get(route('integrations.gmail.threads'))
+            ->assertRedirect(route('integrations.gmail.index'))
+            ->assertSessionHasErrors('gmail');
+
+        $account->refresh();
+        $this->assertSame('error', $account->status);
+        $this->assertSame('Gmail no pudo leer los correos. Verificá la conexión e intentá nuevamente.', $account->error_message);
+    }
+
     private function configureGoogle(): void
     {
         config()->set('services.google.client_id', 'client-id');
         config()->set('services.google.client_secret', 'client-secret');
         config()->set('services.google.redirect_uri', '/integrations/gmail/oauth/callback');
+    }
+
+    private function connectedAccount(array $attributes = []): EmailAccount
+    {
+        return EmailAccount::create(array_merge([
+            'provider' => 'gmail',
+            'email_address' => 'emiliano@18dev.com',
+            'access_token' => 'access-token-value',
+            'refresh_token' => 'refresh-token-value',
+            'token_expires_at' => now()->addHour(),
+            'status' => 'connected',
+            'connected_at' => now(),
+        ], $attributes));
+    }
+
+    private function fullThread(): array
+    {
+        return [
+            'id' => 'thread-123',
+            'messages' => [[
+                'snippet' => 'Necesitamos ajustar el formulario.',
+                'payload' => [
+                    'headers' => [
+                        ['name' => 'Subject', 'value' => 'Corregir formulario de contacto'],
+                        ['name' => 'From', 'value' => 'Lucia <lucia@example.com>'],
+                        ['name' => 'To', 'value' => 'Equipo web <web@example.com>'],
+                        ['name' => 'Date', 'value' => 'Tue, 12 Aug 2026 10:00:00 +0000'],
+                    ],
+                    'body' => ['data' => rtrim(strtr(base64_encode('El formulario debe mostrar el campo Empresa.'), '+/', '-_'), '=')],
+                ],
+            ]],
+        ];
     }
 }

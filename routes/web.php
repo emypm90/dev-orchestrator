@@ -11,6 +11,8 @@ Route::get('/integrations/gmail', [GmailIntegrationController::class, 'index'])-
 Route::post('/integrations/gmail/connect', [GmailIntegrationController::class, 'connect'])->name('integrations.gmail.connect');
 Route::get('/integrations/gmail/oauth/callback', [GmailIntegrationController::class, 'callback'])->name('integrations.gmail.callback');
 Route::post('/integrations/gmail/disconnect', [GmailIntegrationController::class, 'disconnect'])->name('integrations.gmail.disconnect');
+Route::get('/integrations/gmail/threads', [GmailIntegrationController::class, 'threads'])->name('integrations.gmail.threads');
+Route::post('/integrations/gmail/threads/{threadId}/import', [GmailIntegrationController::class, 'importThread'])->name('integrations.gmail.threads.import');
 Route::get('/email-thread-imports/create', [EmailThreadImportController::class, 'create'])->name('email-thread-imports.create');
 Route::post('/email-thread-imports', [EmailThreadImportController::class, 'store'])->name('email-thread-imports.store');
 Route::get('/email-thread-imports/{emailThreadImport}', [EmailThreadImportController::class, 'show'])->name('email-thread-imports.show');
