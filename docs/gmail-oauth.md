@@ -1,6 +1,15 @@
 # Conectar Gmail con Google
 
-Esta integración solo guarda la autorización local de una cuenta Gmail o Google Workspace. Todavía no lee, descarga ni importa mensajes; esa será una etapa posterior para seleccionar correos y crear tickets operativos.
+Esta integración guarda la autorización local de una cuenta Gmail o Google Workspace. Todavía no lee, descarga ni importa mensajes desde la API.
+
+## Flujo actual por etapas
+
+1. OAuth conecta Gmail y almacena la autorización local.
+2. La pantalla de Gmail permite pegar una cadena completa para crear un borrador de ticket local con un generador determinista y testeable.
+3. El borrador presenta resumen, expectativas funcionales y preguntas abiertas para revisión explícita.
+4. Solo después de revisar se crea un ticket operativo en `triage`.
+
+Una etapa futura descargará cadenas reales de Gmail y las enviará al mismo servicio de borradores. Tampoco hay un proveedor de IA configurado en esta etapa: no se hacen llamadas externas para analizar el texto.
 
 ## Configuración en Google Cloud
 
