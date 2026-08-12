@@ -1,10 +1,15 @@
 <?php
 
+use App\Http\Controllers\GmailIntegrationController;
 use App\Http\Controllers\OperationalTicketController;
 use App\Http\Controllers\TaskDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [TaskDashboardController::class, 'index'])->name('tasks.index');
+Route::get('/integrations/gmail', [GmailIntegrationController::class, 'index'])->name('integrations.gmail.index');
+Route::post('/integrations/gmail/connect', [GmailIntegrationController::class, 'connect'])->name('integrations.gmail.connect');
+Route::get('/integrations/gmail/oauth/callback', [GmailIntegrationController::class, 'callback'])->name('integrations.gmail.callback');
+Route::post('/integrations/gmail/disconnect', [GmailIntegrationController::class, 'disconnect'])->name('integrations.gmail.disconnect');
 Route::get('/operational-tickets', [OperationalTicketController::class, 'index'])->name('operational-tickets.index');
 Route::get('/operational-tickets/create', [OperationalTicketController::class, 'create'])->name('operational-tickets.create');
 Route::post('/operational-tickets', [OperationalTicketController::class, 'store'])->name('operational-tickets.store');

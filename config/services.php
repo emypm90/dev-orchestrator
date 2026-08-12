@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_OAUTH_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_OAUTH_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_OAUTH_REDIRECT_URI', '/integrations/gmail/oauth/callback'),
+        'scopes' => [
+            'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+        ],
+    ],
+
 ];

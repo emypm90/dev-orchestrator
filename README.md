@@ -71,6 +71,10 @@ This is enough for the current dashboard because the Blade views use server-rend
 
 Abrí **Tickets operativos** desde la navegación del dashboard para cargar pedidos manuales y hacerles triage antes de convertirlos en trabajo técnico. El flujo inicial y sus límites están documentados en [docs/operational-workflow.md](docs/operational-workflow.md).
 
+### Integración con Gmail
+
+Abrí **Integraciones** para conectar una cuenta Gmail o Google Workspace mediante OAuth. La conexión guarda tokens cifrados localmente para el MVP, usa permisos de solo lectura y todavía no importa correos. La configuración de Google Cloud y los límites de seguridad están en [docs/gmail-oauth.md](docs/gmail-oauth.md).
+
 ### Full development environment
 
 Use this when you are actively developing the app and want Laravel, queues, logs, and Vite running together:
