@@ -38,7 +38,7 @@
         </div>
 
         @if (! $configured)
-            <div class="errors"><strong>Configuración pendiente.</strong><div>Agregá `GOOGLE_OAUTH_CLIENT_ID` y `GOOGLE_OAUTH_CLIENT_SECRET` al archivo `.env`. Consultá <code>docs/gmail-oauth.md</code> para registrar la URL de redirección local.</div></div>
+            <div class="errors"><strong>Configuración pendiente.</strong><div>Completá las credenciales en <a href="{{ route('settings.integrations.edit') }}">Configuración</a> o agregá `GOOGLE_OAUTH_CLIENT_ID` y `GOOGLE_OAUTH_CLIENT_SECRET` al archivo `.env`. Consultá <code>docs/gmail-oauth.md</code> para registrar la URL de redirección local.</div></div>
         @endif
 
         <dl class="detail">

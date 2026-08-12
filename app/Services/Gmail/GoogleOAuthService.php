@@ -2,25 +2,28 @@
 
 namespace App\Services\Gmail;
 
+use App\Services\Integrations\IntegrationSettingsResolver;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use RuntimeException;
 
 class GoogleOAuthService
 {
-    public function __construct(private HttpFactory $http) {}
+    public function __construct(private HttpFactory $http, private IntegrationSettingsResolver $settings) {}
 
     public function isConfigured(): bool
     {
-        return filled(config('services.google.client_id')) && filled(config('services.google.client_secret'));
+        $google = $this->settings->google();
+
+        return filled($google['client_id']) && filled($google['client_secret']);
     }
 
     public function authorizationUrl(string $state): string
     {
         return 'https://accounts.google.com/o/oauth2/v2/auth?'.http_build_query([
-            'client_id' => config('services.google.client_id'),
+            'client_id' => $this->settings->google()['client_id'],
             'redirect_uri' => $this->redirectUri(),
             'response_type' => 'code',
-            'scope' => implode(' ', config('services.google.scopes')),
+            'scope' => implode(' ', $this->settings->google()['scopes']),
             'access_type' => 'offline',
             'prompt' => 'consent',
             'state' => $state,
@@ -31,8 +34,8 @@ class GoogleOAuthService
     {
         $response = $this->http->asForm()->post('https://oauth2.googleapis.com/token', [
             'code' => $code,
-            'client_id' => config('services.google.client_id'),
-            'client_secret' => config('services.google.client_secret'),
+            'client_id' => $this->settings->google()['client_id'],
+            'client_secret' => $this->settings->google()['client_secret'],
             'redirect_uri' => $this->redirectUri(),
             'grant_type' => 'authorization_code',
         ]);
@@ -58,8 +61,8 @@ class GoogleOAuthService
     public function refreshAccessToken(string $refreshToken): array
     {
         $response = $this->http->asForm()->post('https://oauth2.googleapis.com/token', [
-            'client_id' => config('services.google.client_id'),
-            'client_secret' => config('services.google.client_secret'),
+            'client_id' => $this->settings->google()['client_id'],
+            'client_secret' => $this->settings->google()['client_secret'],
             'refresh_token' => $refreshToken,
             'grant_type' => 'refresh_token',
         ]);
@@ -73,7 +76,7 @@ class GoogleOAuthService
 
     private function redirectUri(): string
     {
-        $uri = config('services.google.redirect_uri');
+        $uri = $this->settings->google()['redirect_uri'];
 
         return str_starts_with($uri, 'http') ? $uri : url($uri);
     }

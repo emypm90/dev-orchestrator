@@ -2,16 +2,18 @@
 
 namespace App\Services\Gmail;
 
+use App\Services\Integrations\IntegrationSettingsResolver;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Throwable;
 
 class OpenAiTicketDraftProvider
 {
-    public function __construct(private HttpFactory $http) {}
+    public function __construct(private HttpFactory $http, private IntegrationSettingsResolver $settings) {}
 
     public function generate(string $prompt): ?array
     {
-        $apiKey = config('services.openai.ticket_draft.key');
+        $settings = $this->settings->openAiTicketDraft();
+        $apiKey = $settings['key'];
 
         if (! is_string($apiKey) || $apiKey === '') {
             return null;
@@ -21,7 +23,7 @@ class OpenAiTicketDraftProvider
             $response = $this->http->withToken($apiKey)
                 ->acceptJson()
                 ->post('https://api.openai.com/v1/responses', [
-                    'model' => config('services.openai.ticket_draft.model'),
+                    'model' => $settings['model'],
                     'input' => $prompt,
                     'text' => [
                         'format' => [
@@ -53,7 +55,7 @@ class OpenAiTicketDraftProvider
 
     public function label(): string
     {
-        return 'OpenAI ('.config('services.openai.ticket_draft.model').')';
+        return 'OpenAI ('.$this->settings->openAiTicketDraft()['model'].')';
     }
 
     private function schema(): array

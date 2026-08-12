@@ -13,7 +13,7 @@ Los hilos importados se normalizan y pasan por el mismo generador. Cuando OpenAI
 
 ## Borradores con OpenAI
 
-Para generar borradores con OpenAI, agregá estas variables a tu `.env` local, sin versionar la clave:
+Para generar borradores con OpenAI, abrí **Configuración** en el dashboard y cargá la clave, el modelo y la opción de habilitación. Los secretos se cifran en SQLite con `APP_KEY` y nunca se muestran completos. Como alternativa o fallback, podés agregar estas variables a tu `.env` local, sin versionar la clave:
 
 ```dotenv
 OPENAI_API_KEY=
@@ -23,7 +23,7 @@ OPENAI_TICKET_DRAFT_ENABLED=true
 
 Con una clave configurada y la opción habilitada, la aplicación envía el asunto, los participantes y el texto completo de la cadena a OpenAI Responses para obtener un JSON estructurado. Solo se conserva el payload propuesto (resumen, expectativas, preguntas y campos del ticket); no se guarda la respuesta cruda de OpenAI. Si falta la clave, la opción está deshabilitada, la API falla o devuelve un payload inválido, se usa automáticamente el generador local determinista sin bloquear el borrador.
 
-El texto de los correos solo se envía a OpenAI cuando `OPENAI_API_KEY` está configurada y la generación está habilitada. Revisá las políticas de privacidad y retención aplicables antes de usar esta opción con información sensible. La clave no se muestra, registra ni almacena en SQLite.
+El texto de los correos solo se envía a OpenAI cuando hay una clave configurada y la generación está habilitada. Revisá las políticas de privacidad y retención aplicables antes de usar esta opción con información sensible. La clave no se muestra ni registra; cuando se guarda desde el dashboard, queda cifrada en SQLite.
 
 ## Configuración en Google Cloud
 
@@ -32,7 +32,7 @@ El texto de los correos solo se envía a OpenAI cuando `OPENAI_API_KEY` está co
 3. En **APIs y servicios**, habilitá la Gmail API.
 4. Creá credenciales de tipo **ID de cliente OAuth**, aplicación web.
 5. Agregá la URL de redirección autorizada local. Con el launcher del proyecto suele ser `http://127.0.0.1:8001/integrations/gmail/oauth/callback`; ajustá host o puerto si corresponde.
-6. Copiá el ID y secreto al `.env` local, sin versionarlos:
+6. Copiá el ID, secreto y URI de redirección en **Configuración** del dashboard. Como alternativa o fallback, podés cargarlos al `.env` local, sin versionarlos:
 
 ```dotenv
 GOOGLE_OAUTH_CLIENT_ID=
@@ -44,4 +44,4 @@ Podés usar una URL absoluta en `GOOGLE_OAUTH_REDIRECT_URI` si el host local no 
 
 ## Permisos y almacenamiento
 
-La autorización solicita únicamente `gmail.readonly`, `userinfo.email` y `userinfo.profile`; no puede enviar, borrar ni modificar correos. Los tokens se guardan en SQLite con casts `encrypted` de Laravel, cifrados con la clave local de la aplicación. Protegé `.env`, `APP_KEY` y `database/database.sqlite` como secretos locales. Desconectar borra los tokens almacenados, aunque no revoca el acceso en Google; para revocarlo completamente, retiralo también desde la cuenta de Google.
+La autorización solicita únicamente `gmail.readonly`, `userinfo.email` y `userinfo.profile`; no puede enviar, borrar ni modificar correos. Los tokens y credenciales guardadas desde el dashboard se almacenan en SQLite con casts `encrypted` de Laravel, cifrados con la clave local de la aplicación. Protegé `.env`, `APP_KEY` y `database/database.sqlite` como secretos locales: perder `APP_KEY` impide descifrar los valores guardados. Desconectar borra los tokens almacenados, aunque no revoca el acceso en Google; para revocarlo completamente, retiralo también desde la cuenta de Google.

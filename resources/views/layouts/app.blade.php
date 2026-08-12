@@ -157,7 +157,7 @@
                 <div>
                     <p class="eyebrow">Orquestador de desarrollo local</p>
                     <h1><a href="{{ route('tasks.index') }}">{{ $heading ?? 'Panel de tareas' }}</a></h1>
-                    <nav class="top-nav" aria-label="Navegación principal"><a href="{{ route('tasks.index', ['attention' => 1]) }}">Tareas de ejecución <span class="nav-badge">{{ $layoutAttentionSummary['executionTasks']['count'] }}</span></a><a href="{{ route('operational-tickets.index', ['attention' => 1]) }}">Tickets operativos <span class="nav-badge">{{ $layoutAttentionSummary['operationalTickets']['count'] }}</span></a><a href="{{ route('integrations.gmail.index') }}">Integraciones</a></nav>
+                    <nav class="top-nav" aria-label="Navegación principal"><a href="{{ route('tasks.index', ['attention' => 1]) }}">Tareas de ejecución <span class="nav-badge">{{ $layoutAttentionSummary['executionTasks']['count'] }}</span></a><a href="{{ route('operational-tickets.index', ['attention' => 1]) }}">Tickets operativos <span class="nav-badge">{{ $layoutAttentionSummary['operationalTickets']['count'] }}</span></a><a href="{{ route('integrations.gmail.index') }}">Integraciones</a><a href="{{ route('settings.integrations.edit') }}">Configuración</a></nav>
                 </div>
             </div>
             <p class="safety-notice"><span class="safety-icon">&#9672;</span><span><strong>MVP local.</strong> Las decisiones de revisión se registran localmente y nunca modifican el estado de Git.</span></p>

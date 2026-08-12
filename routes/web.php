@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\EmailThreadImportController;
 use App\Http\Controllers\GmailIntegrationController;
+use App\Http\Controllers\IntegrationSettingsController;
 use App\Http\Controllers\OperationalTicketController;
 use App\Http\Controllers\TaskDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [TaskDashboardController::class, 'index'])->name('tasks.index');
 Route::get('/integrations/gmail', [GmailIntegrationController::class, 'index'])->name('integrations.gmail.index');
+Route::get('/configuracion/integraciones', [IntegrationSettingsController::class, 'edit'])->name('settings.integrations.edit');
+Route::put('/configuracion/integraciones', [IntegrationSettingsController::class, 'update'])->name('settings.integrations.update');
 Route::post('/integrations/gmail/connect', [GmailIntegrationController::class, 'connect'])->name('integrations.gmail.connect');
 Route::get('/integrations/gmail/oauth/callback', [GmailIntegrationController::class, 'callback'])->name('integrations.gmail.callback');
 Route::post('/integrations/gmail/disconnect', [GmailIntegrationController::class, 'disconnect'])->name('integrations.gmail.disconnect');

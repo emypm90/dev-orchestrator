@@ -2,6 +2,8 @@
 
 namespace App\Services\Gmail;
 
+use App\Services\Integrations\IntegrationSettingsResolver;
+
 class ThreadTicketDraftGenerator
 {
     private const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
@@ -9,6 +11,7 @@ class ThreadTicketDraftGenerator
     public function __construct(
         private DeterministicTicketDraftProvider $deterministic,
         private OpenAiTicketDraftProvider $openAi,
+        private IntegrationSettingsResolver $settings,
     ) {}
 
     public function generate(string $subject, array $participants, string $threadText): array
@@ -29,8 +32,9 @@ class ThreadTicketDraftGenerator
 
     public function usesOpenAi(): bool
     {
-        return filter_var(config('services.openai.ticket_draft.enabled'), FILTER_VALIDATE_BOOL)
-            && filled(config('services.openai.ticket_draft.key'));
+        $settings = $this->settings->openAiTicketDraft();
+
+        return $settings['enabled'] && filled($settings['key']);
     }
 
     /**
