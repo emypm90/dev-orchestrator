@@ -4,7 +4,7 @@
     <section class="panel command-hero">
         <div class="hero-signal"><span class="signal-dot"></span>Integración local</div>
         <h2>Conectá Gmail para preparar la próxima bandeja de entrada</h2>
-        <p>La conexión autoriza lectura de Gmail y datos básicos del perfil. Buscá cadenas reales, creá un borrador local y revisalo antes de crear un ticket.</p>
+        <p>La conexión autoriza lectura de Gmail y datos básicos del perfil. Buscá cadenas reales, creá un borrador y revisalo antes de crear un ticket.</p>
     </section>
     <section class="panel">
         <div class="panel-header"><div><p class="section-kicker">Gmail de solo lectura</p><h2>Buscar cadenas recientes</h2><p class="panel-copy">La importación nunca crea un ticket automáticamente: primero abre el borrador para revisión.</p></div></div>
@@ -59,6 +59,6 @@
         </div>
     </section>
     <section class="panel">
-        <div class="panel-header"><div><p class="section-kicker">Intake local</p><h2>Borrador de ticket desde cadena pegada</h2><p class="panel-copy">Analizá una conversación completa y revisá el ticket propuesto antes de crearlo. No consulta Gmail ni usa un proveedor de IA todavía.</p></div><a class="button-link" href="{{ route('email-thread-imports.create') }}">Crear borrador local</a></div>
+        <div class="panel-header"><div><p class="section-kicker">Intake de correo</p><h2>Borrador de ticket desde cadena pegada</h2><p class="panel-copy">Generación actual: {{ $draftProvider }}. Analizá una conversación completa y revisá el ticket propuesto antes de crearlo.</p></div><a class="button-link" href="{{ route('email-thread-imports.create') }}">Crear borrador</a></div>
     </section>
 @endsection

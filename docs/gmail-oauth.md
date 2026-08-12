@@ -5,11 +5,25 @@ Esta integración guarda la autorización local de una cuenta Gmail o Google Wor
 ## Flujo actual por etapas
 
 1. OAuth conecta Gmail y almacena la autorización local.
-2. La pantalla de Gmail permite buscar cadenas recientes, importar una seleccionada y crear un borrador de ticket local con un generador determinista y testeable. También permite pegar una cadena manualmente.
+2. La pantalla de Gmail permite buscar cadenas recientes, importar una seleccionada y crear un borrador de ticket. También permite pegar una cadena manualmente.
 3. El borrador presenta resumen, expectativas funcionales y preguntas abiertas para revisión explícita.
 4. Solo después de revisar se crea un ticket operativo en `triage`.
 
-Los hilos importados se normalizan y pasan por el mismo generador local determinista. Todavía no hay proveedor de IA: no se hacen llamadas externas para analizar el texto. Importar una cadena nunca crea un ticket; la revisión explícita sigue siendo obligatoria.
+Los hilos importados se normalizan y pasan por el mismo generador. Cuando OpenAI no está configurado, usa el generador local determinista. Importar una cadena nunca crea un ticket; la revisión explícita sigue siendo obligatoria.
+
+## Borradores con OpenAI
+
+Para generar borradores con OpenAI, agregá estas variables a tu `.env` local, sin versionar la clave:
+
+```dotenv
+OPENAI_API_KEY=
+OPENAI_TICKET_DRAFT_MODEL=gpt-5.5
+OPENAI_TICKET_DRAFT_ENABLED=true
+```
+
+Con una clave configurada y la opción habilitada, la aplicación envía el asunto, los participantes y el texto completo de la cadena a OpenAI Responses para obtener un JSON estructurado. Solo se conserva el payload propuesto (resumen, expectativas, preguntas y campos del ticket); no se guarda la respuesta cruda de OpenAI. Si falta la clave, la opción está deshabilitada, la API falla o devuelve un payload inválido, se usa automáticamente el generador local determinista sin bloquear el borrador.
+
+El texto de los correos solo se envía a OpenAI cuando `OPENAI_API_KEY` está configurada y la generación está habilitada. Revisá las políticas de privacidad y retención aplicables antes de usar esta opción con información sensible. La clave no se muestra, registra ni almacena en SQLite.
 
 ## Configuración en Google Cloud
 

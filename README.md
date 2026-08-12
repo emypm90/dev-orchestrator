@@ -73,7 +73,7 @@ Abrí **Tickets operativos** desde la navegación del dashboard para cargar pedi
 
 ### Integración con Gmail
 
-Abrí **Integraciones** para conectar una cuenta Gmail o Google Workspace mediante OAuth. La conexión guarda tokens cifrados localmente para el MVP, usa permisos de solo lectura y todavía no importa correos. La configuración de Google Cloud y los límites de seguridad están en [docs/gmail-oauth.md](docs/gmail-oauth.md).
+Abrí **Integraciones** para conectar una cuenta Gmail o Google Workspace mediante OAuth. La conexión guarda tokens cifrados localmente, usa permisos de solo lectura, permite importar cadenas para borradores revisables y puede usar OpenAI cuando se configura explícitamente. La configuración de Google Cloud, OpenAI y los límites de seguridad están en [docs/gmail-oauth.md](docs/gmail-oauth.md).
 
 ### Full development environment
 

@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\DB;
 
 class EmailThreadImportController extends Controller
 {
-    public function create()
+    public function create(ThreadTicketDraftGenerator $generator)
     {
-        return view('email-thread-imports.create');
+        return view('email-thread-imports.create', ['draftProvider' => $generator->providerLabel()]);
     }
 
     public function store(Request $request, ThreadTicketDraftGenerator $generator): RedirectResponse
@@ -34,6 +34,7 @@ class EmailThreadImportController extends Controller
             'subject' => $data['subject'],
             'participants' => $participants ?: null,
             'raw_thread_text' => $data['raw_thread_text'],
+            'draft_generator' => $generator->providerLabel(),
             'ai_summary' => $draft['summary'],
             'ai_expectations' => $draft['functional_expectations'],
             'ai_questions' => $draft['open_questions'],

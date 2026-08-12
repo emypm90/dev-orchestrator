@@ -5,7 +5,7 @@
     <section class="panel command-hero">
         <div class="hero-signal"><span class="signal-dot"></span>Revisión requerida</div>
         <h2>{{ $import->subject }}</h2>
-        <p>Este análisis es un borrador local generado desde texto pegado. Revisalo antes de crear un ticket operativo.</p>
+        <p>Generado con: {{ $import->draft_generator ?? 'Generador local determinista' }}. Este análisis es un borrador generado desde una cadena de correo. Revisalo antes de crear un ticket operativo.</p>
     </section>
     <section class="panel">
         <div class="decision-summary">

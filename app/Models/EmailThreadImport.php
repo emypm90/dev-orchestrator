@@ -11,7 +11,7 @@ class EmailThreadImport extends Model
 
     protected $fillable = [
         'email_account_id', 'provider', 'external_thread_id', 'subject', 'participants',
-        'raw_thread_text', 'ai_summary', 'ai_expectations', 'ai_questions',
+        'raw_thread_text', 'draft_generator', 'ai_summary', 'ai_expectations', 'ai_questions',
         'proposed_ticket_payload', 'operational_ticket_id', 'status', 'error_message',
     ];
 

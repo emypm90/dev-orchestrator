@@ -14,15 +14,16 @@ use Throwable;
 
 class GmailIntegrationController extends Controller
 {
-    public function index(GoogleOAuthService $google)
+    public function index(GoogleOAuthService $google, ThreadTicketDraftGenerator $generator)
     {
         return view('integrations.gmail', [
             'account' => EmailAccount::query()->where('provider', 'gmail')->latest('connected_at')->first(),
             'configured' => $google->isConfigured(),
+            'draftProvider' => $generator->providerLabel(),
         ]);
     }
 
-    public function threads(Request $request, GmailApiService $gmail): mixed
+    public function threads(Request $request, GmailApiService $gmail, ThreadTicketDraftGenerator $generator): mixed
     {
         $account = EmailAccount::query()->where('provider', 'gmail')->where('status', 'connected')->latest('connected_at')->first();
 
@@ -41,6 +42,7 @@ class GmailIntegrationController extends Controller
             'configured' => app(GoogleOAuthService::class)->isConfigured(),
             'threads' => $threads,
             'query' => $request->string('query')->trim()->toString(),
+            'draftProvider' => $generator->providerLabel(),
         ]);
     }
 
@@ -70,6 +72,7 @@ class GmailIntegrationController extends Controller
                 'subject' => $thread['subject'],
                 'participants' => $thread['participants'],
                 'raw_thread_text' => $thread['raw_thread_text'],
+                'draft_generator' => $generator->providerLabel(),
                 'ai_summary' => $draft['summary'],
                 'ai_expectations' => $draft['functional_expectations'],
                 'ai_questions' => $draft['open_questions'],

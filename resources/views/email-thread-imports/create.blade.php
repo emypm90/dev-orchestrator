@@ -3,9 +3,9 @@
 @section('content')
     <a class="back-link" href="{{ route('integrations.gmail.index') }}">&larr; Volver a integración Gmail</a>
     <section class="panel command-hero">
-        <div class="hero-signal"><span class="signal-dot"></span>Borrador local</div>
+        <div class="hero-signal"><span class="signal-dot"></span>{{ $draftProvider }}</div>
         <h2>Creá un borrador desde una cadena pegada</h2>
-        <p>Pegá la conversación completa. Por ahora no se descarga nada desde Gmail ni se llama a un proveedor de IA: el borrador queda local y requiere revisión antes de crear el ticket.</p>
+        <p>Pegá la conversación completa. Generación actual: {{ $draftProvider }}. El borrador requiere revisión antes de crear el ticket.</p>
     </section>
     <section class="panel">
         <form class="ticket-form" method="POST" action="{{ route('email-thread-imports.store') }}">

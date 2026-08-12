@@ -46,4 +46,12 @@ return [
         ],
     ],
 
+    'openai' => [
+        'ticket_draft' => [
+            'key' => env('OPENAI_API_KEY'),
+            'model' => env('OPENAI_TICKET_DRAFT_MODEL', 'gpt-5.5'),
+            'enabled' => env('OPENAI_TICKET_DRAFT_ENABLED', true),
+        ],
+    ],
+
 ];

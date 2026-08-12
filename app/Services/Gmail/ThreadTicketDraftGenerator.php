@@ -4,60 +4,74 @@ namespace App\Services\Gmail;
 
 class ThreadTicketDraftGenerator
 {
-    /**
-     * Boundary for a future AI provider. This deterministic implementation keeps
-     * the pasted-thread workflow local and predictable for review and tests.
-     */
+    private const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+
+    public function __construct(
+        private DeterministicTicketDraftProvider $deterministic,
+        private OpenAiTicketDraftProvider $openAi,
+    ) {}
+
     public function generate(string $subject, array $participants, string $threadText): array
     {
-        $lines = collect(preg_split('/\R+/', trim($threadText)))
-            ->map(fn (string $line) => trim($line))
-            ->filter()
-            ->values();
-        $expectations = $lines
-            ->filter(fn (string $line) => preg_match('/\b(debe|deben|espera|esperan|requiere|requerimos|necesita|necesitamos|should|must|needs to)\b/ui', $line) === 1)
-            ->take(5)
-            ->values()
-            ->all();
-        $questions = $lines
-            ->filter(fn (string $line) => str_contains($line, '?'))
-            ->take(5)
-            ->values()
-            ->all();
+        $fallback = $this->deterministic->generate($subject, $participants, $threadText);
 
-        if ($expectations === []) {
-            $expectations[] = 'Confirmar el comportamiento esperado con la persona solicitante antes de implementar.';
+        if (! $this->usesOpenAi()) {
+            return $fallback;
         }
 
-        if ($questions === []) {
-            $questions[] = '¿Hay criterios de aceptación, fecha límite o alcance adicional que deban confirmarse?';
-        }
+        return $this->normalize($this->openAi->generate($this->prompt($subject, $participants, $threadText)), $threadText) ?? $fallback;
+    }
 
-        $summary = $lines->take(3)->implode(' ');
-        $requester = $participants[0] ?? null;
-        $objective = 'Resolver el pedido descrito en la cadena de correo.';
+    public function providerLabel(): string
+    {
+        return $this->usesOpenAi() ? $this->openAi->label() : 'Generador local determinista';
+    }
 
-        return [
-            'project_name' => 'Sin clasificar',
-            'requester' => $requester,
-            'title' => $subject,
-            'original_text' => $threadText,
-            'context' => $threadText,
-            'objective' => $objective,
-            'priority' => 'normal',
-            'summary' => $summary !== '' ? $summary : $subject,
-            'functional_expectations' => $expectations,
-            'open_questions' => $questions,
-        ];
+    public function usesOpenAi(): bool
+    {
+        return filter_var(config('services.openai.ticket_draft.enabled'), FILTER_VALIDATE_BOOL)
+            && filled(config('services.openai.ticket_draft.key'));
     }
 
     /**
-     * Exact future provider prompt. The provider must return the same keys as generate().
+     * The provider receives the full thread but only this structured draft is retained.
      */
     public function prompt(string $subject, array $participants, string $threadText): string
     {
-        return "Analizá la cadena completa de Gmail y devolvé JSON válido con: project_name, requester, title, original_text, context, objective, priority (low|normal|high|urgent), summary, functional_expectations (array) y open_questions (array).\n\n"
-            ."Asunto: {$subject}\nParticipantes: ".implode(', ', $participants)."\n\nCadena completa:\n{$threadText}\n\n"
-            .'Conservá los hechos y requisitos explícitos. No inventes decisiones; convertí ambigüedades en open_questions.';
+        return "Analizá la cadena completa de Gmail y devolvé únicamente el JSON solicitado. Es un borrador operativo para revisión humana obligatoria: no crees tickets ni inventes hechos. Conservá los requisitos explícitos y convertí ambigüedades en open_questions.\n\n"
+            ."Campos requeridos: project_name, requester, title, original_text, context, objective, priority (low|normal|high|urgent), summary, functional_expectations (array de strings) y open_questions (array de strings).\n\n"
+            ."Asunto: {$subject}\nParticipantes: ".implode(', ', $participants)."\n\nCadena completa:\n{$threadText}";
+    }
+
+    private function normalize(?array $payload, string $threadText): ?array
+    {
+        if ($payload === null) {
+            return null;
+        }
+
+        foreach (['project_name', 'title', 'context', 'objective', 'summary'] as $field) {
+            if (! isset($payload[$field]) || ! is_string($payload[$field]) || trim($payload[$field]) === '') {
+                return null;
+            }
+        }
+
+        if (isset($payload['requester']) && ! is_string($payload['requester'])) {
+            return null;
+        }
+
+        if (! isset($payload['priority']) || ! is_string($payload['priority']) || ! in_array($payload['priority'], self::PRIORITIES, true)) {
+            return null;
+        }
+
+        foreach (['functional_expectations', 'open_questions'] as $field) {
+            if (! isset($payload[$field]) || ! is_array($payload[$field]) || collect($payload[$field])->contains(fn ($item) => ! is_string($item) || trim($item) === '')) {
+                return null;
+            }
+        }
+
+        // Preserve the imported evidence rather than trusting a model echo of it.
+        $payload['original_text'] = $threadText;
+
+        return $payload;
     }
 }
