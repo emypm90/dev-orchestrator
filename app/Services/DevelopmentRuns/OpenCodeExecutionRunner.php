@@ -33,6 +33,14 @@ class OpenCodeExecutionRunner
     /**
      * @return array{status: 'completed'|'failed', exit_code: int, output: string}
      */
+    public function runSlicing(string $workingDirectory, string $prompt): array
+    {
+        return $this->runStage($this->slicingAgent(), $workingDirectory, $this->slicingCliPrompt($prompt));
+    }
+
+    /**
+     * @return array{status: 'completed'|'failed', exit_code: int, output: string}
+     */
     private function runStage(string $agent, string $workingDirectory, string $prompt): array
     {
         $process = new Process(
@@ -86,6 +94,19 @@ class OpenCodeExecutionRunner
     }
 
     /**
+     * @return array{orchestrator_agent: string, stage_agent: string, model: string, variant: string}
+     */
+    public function slicingProfile(): array
+    {
+        return [
+            'orchestrator_agent' => $this->orchestratorAgent(),
+            'stage_agent' => $this->slicingAgent(),
+            'model' => $this->model(),
+            'variant' => $this->variant(),
+        ];
+    }
+
+    /**
      * @return array{context: string, planning: string, slicing: string, build: string, qa: string, review: string}
      */
     public function stageAgents(): array
@@ -93,7 +114,7 @@ class OpenCodeExecutionRunner
         return [
             'context' => 'manual-intake',
             'planning' => $this->planningAgent(),
-            'slicing' => 'deterministic-slicing-agent',
+            'slicing' => $this->slicingAgent(),
             'build' => $this->buildAgent(),
             'qa' => env('DEVELOPMENT_RUN_QA_AGENT', 'local-qa-runner'),
             'review' => 'deterministic-closure-agent',
@@ -122,6 +143,11 @@ class OpenCodeExecutionRunner
         return "EJECUCIÓN NO INTERACTIVA. PLAN AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: convertir el contexto del Development Run en un brief técnico accionable. No pidas comandos, contexto ni confirmación. Respondé solo con el contenido del brief, en español, usando secciones claras: Objetivo, Contexto relevante, Restricciones detectadas, Plan inicial, Criterios de aceptación iniciales, Riesgos o dudas.\n\n{$prompt}";
     }
 
+    private function slicingCliPrompt(string $prompt): string
+    {
+        return "EJECUCIÓN NO INTERACTIVA. SLICES AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: convertir el brief técnico del Development Run en slices chicos, ordenados, verificables y revisables. No pidas comandos, contexto ni confirmación. Respondé solo con el contenido de los slices, en español, usando secciones claras por slice e incluyendo objetivo, alcance, criterios y riesgo de revisión.\n\n{$prompt}";
+    }
+
     private function model(): string
     {
         return env('DEVELOPMENT_RUN_OPENCODE_MODEL', 'openai/gpt-5.5');
@@ -145,5 +171,10 @@ class OpenCodeExecutionRunner
     private function planningAgent(): string
     {
         return env('DEVELOPMENT_RUN_OPENCODE_PLAN_AGENT', 'plan');
+    }
+
+    private function slicingAgent(): string
+    {
+        return env('DEVELOPMENT_RUN_OPENCODE_SLICES_AGENT', 'slices');
     }
 }

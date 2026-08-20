@@ -428,6 +428,76 @@ class DevelopmentRunTest extends TestCase
             ->assertDontSee('Volver al plan');
     }
 
+    public function test_generating_implementation_slices_uses_the_opencode_slices_agent_when_available(): void
+    {
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function runSlicing(string $workingDirectory, string $prompt): array
+            {
+                return ['status' => 'completed', 'exit_code' => 0, 'output' => "Slice 1 — Desde OpenCode Slices\nObjetivo: implementar el primer corte seguro."];
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'repository' => base_path(),
+            'status' => 'planning',
+            'active_stage' => 'plan',
+            'started_at' => now(),
+        ]);
+        $run->artifacts()->create(['type' => 'technical_brief', 'title' => 'Brief técnico inicial', 'body' => 'Brief listo.', 'created_by' => 'opencode']);
+
+        $this->post(route('development-runs.implementation-slices.store', $run))
+            ->assertRedirect(route('development-runs.show', $run));
+
+        $slices = $run->artifacts()->where('type', 'implementation_slices')->firstOrFail();
+        $this->assertSame('opencode', $slices->created_by);
+        $this->assertSame('opencode', $slices->metadata['generator']);
+        $this->assertFalse($slices->metadata['fallback']);
+        $this->assertSame('slices', $slices->metadata['stage_agent']);
+        $this->assertStringContainsString('Desde OpenCode Slices', $slices->body);
+    }
+
+    public function test_generating_implementation_slices_falls_back_when_the_slices_agent_fails(): void
+    {
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function runSlicing(string $workingDirectory, string $prompt): array
+            {
+                return ['status' => 'failed', 'exit_code' => 1, 'output' => 'Slices agent failed.'];
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'status' => 'planning',
+            'active_stage' => 'plan',
+            'started_at' => now(),
+        ]);
+        $run->artifacts()->create(['type' => 'technical_brief', 'title' => 'Brief técnico inicial', 'body' => 'Brief listo.', 'created_by' => 'system']);
+
+        $this->post(route('development-runs.implementation-slices.store', $run))
+            ->assertRedirect(route('development-runs.show', $run));
+
+        $slices = $run->artifacts()->where('type', 'implementation_slices')->firstOrFail();
+        $this->assertSame('system', $slices->created_by);
+        $this->assertSame('deterministic', $slices->metadata['generator']);
+        $this->assertTrue($slices->metadata['fallback']);
+        $this->assertSame('opencode_failed', $slices->metadata['fallback_reason']);
+        $this->assertSame(1, $slices->metadata['exit_code']);
+        $this->assertStringContainsString('Slice 1', $slices->body);
+    }
+
     public function test_preparing_build_persists_a_plan_and_advances_the_run_to_build(): void
     {
         $run = DevelopmentRun::create([

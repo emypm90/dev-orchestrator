@@ -165,13 +165,17 @@ class DevelopmentRunController extends Controller
                 ->withErrors(['implementation_slices' => 'Primero generá el brief técnico.']);
         }
 
-        DB::transaction(function () use ($developmentRun, $technicalBrief, $runner, $contract) {
+        $slices = $developmentRun->artifacts()->where('type', 'implementation_slices')->exists()
+            ? null
+            : $this->implementationSlicesResultFor($developmentRun, $technicalBrief, $runner);
+
+        DB::transaction(function () use ($developmentRun, $technicalBrief, $runner, $contract, $slices) {
             $agents = $runner->stageAgents();
 
             $developmentRun->artifacts()->firstOrCreate(
                 ['type' => 'stage_contract', 'title' => 'Contrato agente Slices'],
                 [
-                    'body' => $contract->render('Slices', $agents['slicing'], 'Dividir el brief en slices chicos, verificables y revisables.', ['Brief técnico inicial'], ['Leer brief', 'Definir slices ordenados', 'Mantener cada slice por debajo de carga saludable de revisión'], ['implementation_slices', 'review workload forecast', 'next recommended slice']),
+                    'body' => $contract->render('Slices', $agents['slicing'], 'Dividir el brief en slices chicos, verificables y revisables.', ['Brief técnico inicial'], ['Ejecutar OpenCode con agente Slices si está disponible', 'Leer brief', 'Definir slices ordenados', 'Mantener cada slice por debajo de carga saludable de revisión', 'Usar fallback determinístico si el agente no responde'], ['implementation_slices', 'review workload forecast', 'next recommended slice', 'status: completed | fallback | failed']),
                     'metadata' => ['stage' => 'slices', 'agent' => $agents['slicing']],
                     'created_by' => 'system',
                 ],
@@ -181,9 +185,9 @@ class DevelopmentRunController extends Controller
                 ['type' => 'implementation_slices'],
                 [
                     'title' => 'Slices de implementación',
-                    'body' => $this->implementationSlicesFor($developmentRun, $technicalBrief->title),
-                    'metadata' => ['generator' => 'deterministic', 'version' => 1],
-                    'created_by' => 'system',
+                    'body' => $slices['body'] ?? $this->implementationSlicesFor($developmentRun, $technicalBrief->title),
+                    'metadata' => $slices['metadata'] ?? ['generator' => 'deterministic', 'version' => 1, 'fallback' => true],
+                    'created_by' => $slices['created_by'] ?? 'system',
                 ],
             );
 
@@ -394,6 +398,68 @@ class DevelopmentRunController extends Controller
             ."Proyecto: ".($run->project ?: 'No definido')."\n"
             ."Prioridad: ".($run->priority ?: 'No definida')."\n\n"
             ."Generá un brief técnico accionable para avanzar a Slices. No modifiques archivos. No ejecutes Git. No ejecutes tests.";
+    }
+
+    /**
+     * @return array{body: string, metadata: array<string, mixed>, created_by: string}
+     */
+    private function implementationSlicesResultFor(DevelopmentRun $run, $technicalBrief, OpenCodeExecutionRunner $runner): array
+    {
+        $profile = $runner->slicingProfile();
+        $fallback = fn (string $reason, ?int $exitCode = null, string $output = ''): array => [
+            'body' => $this->implementationSlicesFor($run, $technicalBrief->title),
+            'metadata' => [
+                'generator' => 'deterministic',
+                'version' => 2,
+                'fallback' => true,
+                'fallback_reason' => $reason,
+                'exit_code' => $exitCode,
+                'opencode_output' => $output !== '' ? substr($output, 0, 2000) : null,
+                ...$profile,
+            ],
+            'created_by' => 'system',
+        ];
+
+        if (! $runner->isAvailable()) {
+            return $fallback('opencode_unavailable');
+        }
+
+        $workingDirectory = $this->planWorkingDirectory($run);
+
+        try {
+            $result = $runner->runSlicing($workingDirectory, $this->slicingPromptFor($run, $technicalBrief));
+        } catch (Throwable $exception) {
+            return $fallback('opencode_exception', 1, $exception->getMessage());
+        }
+
+        if ($result['status'] !== 'completed' || trim($result['output']) === '') {
+            return $fallback('opencode_failed', $result['exit_code'], $result['output']);
+        }
+
+        return [
+            'body' => trim($result['output']),
+            'metadata' => [
+                'generator' => 'opencode',
+                'version' => 1,
+                'fallback' => false,
+                'status' => $result['status'],
+                'exit_code' => $result['exit_code'],
+                'working_directory' => $workingDirectory,
+                'source_technical_brief_id' => $technicalBrief->id,
+                ...$profile,
+            ],
+            'created_by' => 'opencode',
+        ];
+    }
+
+    private function slicingPromptFor(DevelopmentRun $run, $technicalBrief): string
+    {
+        return "Development Run\n"
+            ."Título: {$run->title}\n"
+            ."Proyecto: ".($run->project ?: 'No definido')."\n"
+            ."Prioridad: ".($run->priority ?: 'No definida')."\n\n"
+            ."Brief técnico de entrada:\n{$technicalBrief->body}\n\n"
+            ."Generá slices de implementación chicos, ordenados y revisables para avanzar a Build. No modifiques archivos. No ejecutes Git. No ejecutes tests.";
     }
 
     private function technicalBriefFor(DevelopmentRun $run): string
