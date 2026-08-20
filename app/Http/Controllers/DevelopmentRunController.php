@@ -656,13 +656,17 @@ class DevelopmentRunController extends Controller
                 ->withErrors(['review_report' => 'Primero ejecutá QA.']);
         }
 
-        DB::transaction(function () use ($developmentRun, $runner, $contract, $qaReport) {
+        $review = $developmentRun->artifacts()->where('type', 'review_report')->exists()
+            ? null
+            : $this->reviewReportResultFor($developmentRun->fresh(['artifacts']), $qaReport, $runner);
+
+        DB::transaction(function () use ($developmentRun, $runner, $contract, $qaReport, $review) {
             $agents = $runner->stageAgents();
 
             $developmentRun->artifacts()->firstOrCreate(
                 ['type' => 'stage_contract', 'title' => 'Contrato agente Revisión'],
                 [
-                    'body' => $contract->render('Revisión', $agents['review'], 'Cerrar el Development Run con resumen, evidencia y próximo paso humano.', ['context', 'technical_brief', 'implementation_slices', 'build_plan', 'opencode_execution', 'qa_report'], ['Sintetizar artifacts', 'No ejecutar cambios', 'Marcar cierre local'], ['review_report', 'final_status', 'human handoff']),
+                    'body' => $contract->render('Revisión', $agents['review'], 'Cerrar el Development Run con resumen, evidencia y próximo paso humano.', ['context', 'technical_brief', 'implementation_slices', 'build_plan', 'opencode_execution', 'qa_report'], ['Ejecutar OpenCode con agente Review si está disponible', 'Sintetizar artifacts', 'No ejecutar cambios', 'Marcar cierre local', 'Usar fallback determinístico si el agente no responde'], ['review_report', 'final_status', 'human handoff', 'status: completed | fallback | failed']),
                     'metadata' => ['stage' => 'review', 'agent' => $agents['review']],
                     'created_by' => 'system',
                 ],
@@ -672,9 +676,9 @@ class DevelopmentRunController extends Controller
                 ['type' => 'review_report'],
                 [
                     'title' => 'Cierre del Development Run',
-                    'body' => $this->reviewReportBody($developmentRun->fresh(['artifacts']), $qaReport),
-                    'metadata' => ['agent' => $agents['review'], 'status' => 'completed'],
-                    'created_by' => 'review-agent',
+                    'body' => $review['body'] ?? $this->reviewReportBody($developmentRun->fresh(['artifacts']), $qaReport),
+                    'metadata' => $review['metadata'] ?? ['agent' => $agents['review'], 'status' => 'completed', 'generator' => 'deterministic', 'fallback' => true],
+                    'created_by' => $review['created_by'] ?? 'review-agent',
                 ],
             );
 
@@ -682,6 +686,71 @@ class DevelopmentRunController extends Controller
         });
 
         return redirect()->route('development-runs.show', $developmentRun);
+    }
+
+    /**
+     * @return array{body: string, metadata: array<string, mixed>, created_by: string}
+     */
+    private function reviewReportResultFor(DevelopmentRun $run, $qaReport, OpenCodeExecutionRunner $runner): array
+    {
+        $profile = $runner->reviewProfile();
+        $fallback = fn (string $reason, ?int $exitCode = null, string $output = ''): array => [
+            'body' => $this->reviewReportBody($run, $qaReport),
+            'metadata' => [
+                'generator' => 'deterministic',
+                'fallback' => true,
+                'fallback_reason' => $reason,
+                'status' => 'completed',
+                'exit_code' => $exitCode,
+                'opencode_output' => $output !== '' ? substr($output, 0, 2000) : null,
+                ...$profile,
+            ],
+            'created_by' => 'review-agent',
+        ];
+
+        if (! $runner->isAvailable()) {
+            return $fallback('opencode_unavailable');
+        }
+
+        $workingDirectory = $this->planWorkingDirectory($run);
+
+        try {
+            $result = $runner->runReview($workingDirectory, $this->reviewPromptFor($run));
+        } catch (Throwable $exception) {
+            return $fallback('opencode_exception', 1, $exception->getMessage());
+        }
+
+        if ($result['status'] !== 'completed' || trim($result['output']) === '') {
+            return $fallback('opencode_failed', $result['exit_code'], $result['output']);
+        }
+
+        return [
+            'body' => trim($result['output']),
+            'metadata' => [
+                'generator' => 'opencode',
+                'fallback' => false,
+                'status' => 'completed',
+                'exit_code' => $result['exit_code'],
+                'working_directory' => $workingDirectory,
+                ...$profile,
+            ],
+            'created_by' => 'opencode',
+        ];
+    }
+
+    private function reviewPromptFor(DevelopmentRun $run): string
+    {
+        $artifacts = $run->artifacts
+            ->reject(fn ($artifact) => $artifact->type === 'review_report')
+            ->map(fn ($artifact) => "## {$artifact->title} ({$artifact->type})\n{$artifact->body}")
+            ->implode("\n\n");
+
+        return "Development Run\n"
+            ."Título: {$run->title}\n"
+            ."Repositorio: ".($run->repository ?: 'No definido')."\n"
+            ."Proyecto: ".($run->project ?: 'No definido')."\n\n"
+            ."Artifacts disponibles:\n{$artifacts}\n\n"
+            ."Generá el reporte final de cierre local. No modifiques archivos. No ejecutes Git. No ejecutes tests.";
     }
 
     /**

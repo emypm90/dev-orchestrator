@@ -86,7 +86,7 @@ Flujo principal:
 3. **Slices** — intenta dividir el brief con el agente OpenCode `slices`; si OpenCode no está disponible o falla, usa fallback determinístico.
 4. **Build** — prepara un prompt controlado y ejecuta OpenCode en background con el worker `build`.
 5. **QA** — corre verificaciones locales seguras (`php artisan test` o `npm test`, salvo override).
-6. **Revisión** — genera el cierre local con handoff humano.
+6. **Revisión** — intenta generar el cierre con el agente OpenCode `review`; si OpenCode no está disponible o falla, usa fallback determinístico.
 
 Ejecución background:
 
@@ -104,6 +104,7 @@ Variables opcionales para ajustar el perfil de ejecución de Development Runs:
 - `DEVELOPMENT_RUN_OPENCODE_PLAN_AGENT` — worker que genera el brief de Plan; default `plan`.
 - `DEVELOPMENT_RUN_OPENCODE_SLICES_AGENT` — worker que define slices de implementación; default `slices`.
 - `DEVELOPMENT_RUN_OPENCODE_BUILD_AGENT` — worker que ejecuta Build; default `build`.
+- `DEVELOPMENT_RUN_OPENCODE_REVIEW_AGENT` — worker que genera el cierre de Revisión; default `review`.
 - `DEVELOPMENT_RUN_OPENCODE_MODEL` — modelo del worker; default `openai/gpt-5.5`.
 - `DEVELOPMENT_RUN_OPENCODE_VARIANT` — esfuerzo/variant; default `high`.
 - `DEVELOPMENT_RUN_QA_AGENT` — etiqueta del agente QA; default `local-qa-runner`.

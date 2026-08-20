@@ -41,6 +41,14 @@ class OpenCodeExecutionRunner
     /**
      * @return array{status: 'completed'|'failed', exit_code: int, output: string}
      */
+    public function runReview(string $workingDirectory, string $prompt): array
+    {
+        return $this->runStage($this->reviewAgent(), $workingDirectory, $this->reviewCliPrompt($prompt));
+    }
+
+    /**
+     * @return array{status: 'completed'|'failed', exit_code: int, output: string}
+     */
     private function runStage(string $agent, string $workingDirectory, string $prompt): array
     {
         $process = new Process(
@@ -107,6 +115,19 @@ class OpenCodeExecutionRunner
     }
 
     /**
+     * @return array{orchestrator_agent: string, stage_agent: string, model: string, variant: string}
+     */
+    public function reviewProfile(): array
+    {
+        return [
+            'orchestrator_agent' => $this->orchestratorAgent(),
+            'stage_agent' => $this->reviewAgent(),
+            'model' => $this->model(),
+            'variant' => $this->variant(),
+        ];
+    }
+
+    /**
      * @return array{context: string, planning: string, slicing: string, build: string, qa: string, review: string}
      */
     public function stageAgents(): array
@@ -117,7 +138,7 @@ class OpenCodeExecutionRunner
             'slicing' => $this->slicingAgent(),
             'build' => $this->buildAgent(),
             'qa' => env('DEVELOPMENT_RUN_QA_AGENT', 'local-qa-runner'),
-            'review' => 'deterministic-closure-agent',
+            'review' => $this->reviewAgent(),
         ];
     }
 
@@ -148,6 +169,11 @@ class OpenCodeExecutionRunner
         return "EJECUCIÓN NO INTERACTIVA. SLICES AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: convertir el brief técnico del Development Run en slices chicos, ordenados, verificables y revisables. No pidas comandos, contexto ni confirmación. Respondé solo con el contenido de los slices, en español, usando secciones claras por slice e incluyendo objetivo, alcance, criterios y riesgo de revisión.\n\n{$prompt}";
     }
 
+    private function reviewCliPrompt(string $prompt): string
+    {
+        return "EJECUCIÓN NO INTERACTIVA. REVIEW AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: sintetizar los artifacts del Development Run y generar un cierre local con evidencia, estado final y handoff humano. No pidas comandos, contexto ni confirmación. Respondé solo con el reporte de cierre, en español, usando secciones claras: Cierre del Development Run, Artifacts generados, Evidencia QA, Riesgos o dudas, Handoff humano.\n\n{$prompt}";
+    }
+
     private function model(): string
     {
         return env('DEVELOPMENT_RUN_OPENCODE_MODEL', 'openai/gpt-5.5');
@@ -176,5 +202,10 @@ class OpenCodeExecutionRunner
     private function slicingAgent(): string
     {
         return env('DEVELOPMENT_RUN_OPENCODE_SLICES_AGENT', 'slices');
+    }
+
+    private function reviewAgent(): string
+    {
+        return env('DEVELOPMENT_RUN_OPENCODE_REVIEW_AGENT', 'review');
     }
 }

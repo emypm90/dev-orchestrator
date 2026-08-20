@@ -946,6 +946,82 @@ class DevelopmentRunTest extends TestCase
             ->assertDontSee(route('development-runs.review.store', $run), false);
     }
 
+    public function test_review_uses_the_opencode_review_agent_when_available(): void
+    {
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function runReview(string $workingDirectory, string $prompt): array
+            {
+                return ['status' => 'completed', 'exit_code' => 0, 'output' => "Cierre del Development Run\n- Cierre desde OpenCode Review\n\nHandoff humano\n- Revisar y decidir."];
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'repository' => base_path(),
+            'status' => 'qa_passed',
+            'active_stage' => 'review',
+            'started_at' => now(),
+        ]);
+        $run->artifacts()->create(['type' => 'context', 'title' => 'Contexto inicial', 'body' => 'Contexto.']);
+        $run->artifacts()->create(['type' => 'opencode_execution', 'title' => 'Ejecución OpenCode completada', 'body' => 'Build listo.']);
+        $run->artifacts()->create(['type' => 'qa_report', 'title' => 'QA aprobado', 'body' => 'Tests passed.']);
+
+        $this->post(route('development-runs.review.store', $run))
+            ->assertRedirect(route('development-runs.show', $run));
+
+        $review = $run->artifacts()->where('type', 'review_report')->firstOrFail();
+        $this->assertSame('opencode', $review->created_by);
+        $this->assertSame('opencode', $review->metadata['generator']);
+        $this->assertFalse($review->metadata['fallback']);
+        $this->assertSame('review', $review->metadata['stage_agent']);
+        $this->assertStringContainsString('Cierre desde OpenCode Review', $review->body);
+        $this->assertNotNull($run->fresh()->completed_at);
+    }
+
+    public function test_review_falls_back_when_the_review_agent_fails(): void
+    {
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function runReview(string $workingDirectory, string $prompt): array
+            {
+                return ['status' => 'failed', 'exit_code' => 1, 'output' => 'Review agent failed.'];
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'status' => 'qa_passed',
+            'active_stage' => 'review',
+            'started_at' => now(),
+        ]);
+        $run->artifacts()->create(['type' => 'context', 'title' => 'Contexto inicial', 'body' => 'Contexto.']);
+        $run->artifacts()->create(['type' => 'opencode_execution', 'title' => 'Ejecución OpenCode completada', 'body' => 'Build listo.']);
+        $run->artifacts()->create(['type' => 'qa_report', 'title' => 'QA aprobado', 'body' => 'Tests passed.']);
+
+        $this->post(route('development-runs.review.store', $run))
+            ->assertRedirect(route('development-runs.show', $run));
+
+        $review = $run->artifacts()->where('type', 'review_report')->firstOrFail();
+        $this->assertSame('review-agent', $review->created_by);
+        $this->assertSame('deterministic', $review->metadata['generator']);
+        $this->assertTrue($review->metadata['fallback']);
+        $this->assertSame('opencode_failed', $review->metadata['fallback_reason']);
+        $this->assertSame(1, $review->metadata['exit_code']);
+        $this->assertStringContainsString('Cierre del Development Run', $review->body);
+        $this->assertNotNull($run->fresh()->completed_at);
+    }
+
     public function test_preparing_execution_prompt_without_a_build_plan_is_safe(): void
     {
         $run = DevelopmentRun::create(['title' => 'Resolver acceso', 'initial_context' => 'Validar el permiso pendiente.', 'started_at' => now()]);
