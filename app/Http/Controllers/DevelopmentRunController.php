@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class DevelopmentRunController extends Controller
 {
@@ -111,13 +112,17 @@ class DevelopmentRunController extends Controller
 
     public function storeTechnicalBrief(DevelopmentRun $developmentRun, OpenCodeExecutionRunner $runner, StageAgentContract $contract): RedirectResponse
     {
-        DB::transaction(function () use ($developmentRun, $runner, $contract) {
+        $brief = $developmentRun->artifacts()->where('type', 'technical_brief')->exists()
+            ? null
+            : $this->technicalBriefResultFor($developmentRun, $runner);
+
+        DB::transaction(function () use ($developmentRun, $runner, $contract, $brief) {
             $agents = $runner->stageAgents();
 
             $developmentRun->artifacts()->firstOrCreate(
                 ['type' => 'stage_contract', 'title' => 'Contrato agente Plan'],
                 [
-                    'body' => $contract->render('Plan', $agents['planning'], 'Convertir contexto inicial en brief técnico accionable.', ['Contexto inicial'], ['Leer contexto', 'Detectar restricciones', 'Proponer criterios de aceptación'], ['technical_brief', 'status: completed | blocked | failed', 'risks']),
+                    'body' => $contract->render('Plan', $agents['planning'], 'Convertir contexto inicial en brief técnico accionable.', ['Contexto inicial'], ['Ejecutar OpenCode con agente Plan si está disponible', 'Detectar restricciones', 'Proponer criterios de aceptación', 'Usar fallback determinístico si el agente no responde'], ['technical_brief', 'status: completed | fallback | failed', 'risks']),
                     'metadata' => ['stage' => 'plan', 'agent' => $agents['planning']],
                     'created_by' => 'system',
                 ],
@@ -127,9 +132,9 @@ class DevelopmentRunController extends Controller
                 ['type' => 'technical_brief'],
                 [
                     'title' => 'Brief técnico inicial',
-                    'body' => $this->technicalBriefFor($developmentRun),
-                    'metadata' => ['generator' => 'deterministic', 'version' => 1],
-                    'created_by' => 'system',
+                    'body' => $brief['body'] ?? $this->technicalBriefFor($developmentRun),
+                    'metadata' => $brief['metadata'] ?? ['generator' => 'deterministic', 'version' => 1, 'fallback' => true],
+                    'created_by' => $brief['created_by'] ?? 'system',
                 ],
             );
 
@@ -320,6 +325,75 @@ class DevelopmentRunController extends Controller
         $this->recordBackgroundStart($developmentRun, 'build_background_run', $pid, $background->lastStartMetadata());
 
         return redirect()->route('development-runs.show', $developmentRun);
+    }
+
+    /**
+     * @return array{body: string, metadata: array<string, mixed>, created_by: string}
+     */
+    private function technicalBriefResultFor(DevelopmentRun $run, OpenCodeExecutionRunner $runner): array
+    {
+        $profile = $runner->planningProfile();
+        $fallback = fn (string $reason, ?int $exitCode = null, string $output = ''): array => [
+            'body' => $this->technicalBriefFor($run),
+            'metadata' => [
+                'generator' => 'deterministic',
+                'version' => 2,
+                'fallback' => true,
+                'fallback_reason' => $reason,
+                'exit_code' => $exitCode,
+                'opencode_output' => $output !== '' ? substr($output, 0, 2000) : null,
+                ...$profile,
+            ],
+            'created_by' => 'system',
+        ];
+
+        if (! $runner->isAvailable()) {
+            return $fallback('opencode_unavailable');
+        }
+
+        $workingDirectory = $this->planWorkingDirectory($run);
+
+        try {
+            $result = $runner->runPlanning($workingDirectory, $this->planningPromptFor($run));
+        } catch (Throwable $exception) {
+            return $fallback('opencode_exception', 1, $exception->getMessage());
+        }
+
+        if ($result['status'] !== 'completed' || trim($result['output']) === '') {
+            return $fallback('opencode_failed', $result['exit_code'], $result['output']);
+        }
+
+        return [
+            'body' => trim($result['output']),
+            'metadata' => [
+                'generator' => 'opencode',
+                'version' => 1,
+                'fallback' => false,
+                'status' => $result['status'],
+                'exit_code' => $result['exit_code'],
+                'working_directory' => $workingDirectory,
+                ...$profile,
+            ],
+            'created_by' => 'opencode',
+        ];
+    }
+
+    private function planWorkingDirectory(DevelopmentRun $run): string
+    {
+        $repository = trim((string) $run->repository);
+
+        return $repository !== '' && is_dir($repository) ? $repository : base_path();
+    }
+
+    private function planningPromptFor(DevelopmentRun $run): string
+    {
+        return "Development Run\n"
+            ."Título: {$run->title}\n"
+            ."Contexto inicial:\n{$run->initial_context}\n\n"
+            ."Repositorio declarado: ".($run->repository ?: 'No definido')."\n"
+            ."Proyecto: ".($run->project ?: 'No definido')."\n"
+            ."Prioridad: ".($run->priority ?: 'No definida')."\n\n"
+            ."Generá un brief técnico accionable para avanzar a Slices. No modifiques archivos. No ejecutes Git. No ejecutes tests.";
     }
 
     private function technicalBriefFor(DevelopmentRun $run): string

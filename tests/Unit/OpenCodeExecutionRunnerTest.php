@@ -17,9 +17,15 @@ class OpenCodeExecutionRunnerTest extends TestCase
         $this->assertSame('openai/gpt-5.5', $profile['model']);
         $this->assertSame('high', $profile['variant']);
 
+        $planningProfile = $runner->planningProfile();
+        $this->assertSame('gentle-orchestrator', $planningProfile['orchestrator_agent']);
+        $this->assertSame('plan', $planningProfile['stage_agent']);
+        $this->assertSame('openai/gpt-5.5', $planningProfile['model']);
+        $this->assertSame('high', $planningProfile['variant']);
+
         $this->assertSame([
             'context' => 'manual-intake',
-            'planning' => 'deterministic-brief-agent',
+            'planning' => 'plan',
             'slicing' => 'deterministic-slicing-agent',
             'build' => 'build',
             'qa' => 'local-qa-runner',

@@ -18,6 +18,13 @@ class DevelopmentRunTest extends TestCase
     {
         parent::setUp();
         $this->withoutMiddleware(PreventRequestForgery::class);
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return false;
+            }
+        });
     }
 
     public function test_create_page_renders_command_flow_intake_copy(): void
@@ -226,6 +233,75 @@ class DevelopmentRunTest extends TestCase
             ->assertSee('Definir slices')
             ->assertSee('Volver')
             ->assertDontSee('Volver a contexto');
+    }
+
+    public function test_generating_a_technical_brief_uses_the_opencode_plan_agent_when_available(): void
+    {
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function runPlanning(string $workingDirectory, string $prompt): array
+            {
+                return ['status' => 'completed', 'exit_code' => 0, 'output' => "Objetivo\n- Brief desde OpenCode Plan\n\nContexto relevante\n- Contexto procesado por agente real."];
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'repository' => base_path(),
+            'project' => 'Command Flow',
+            'status' => 'intake',
+            'active_stage' => 'contexto',
+            'started_at' => now(),
+        ]);
+
+        $this->post(route('development-runs.technical-brief.store', $run))
+            ->assertRedirect(route('development-runs.show', $run));
+
+        $brief = $run->artifacts()->where('type', 'technical_brief')->firstOrFail();
+        $this->assertSame('opencode', $brief->created_by);
+        $this->assertSame('opencode', $brief->metadata['generator']);
+        $this->assertFalse($brief->metadata['fallback']);
+        $this->assertSame('plan', $brief->metadata['stage_agent']);
+        $this->assertStringContainsString('Brief desde OpenCode Plan', $brief->body);
+    }
+
+    public function test_generating_a_technical_brief_falls_back_when_the_plan_agent_fails(): void
+    {
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function runPlanning(string $workingDirectory, string $prompt): array
+            {
+                return ['status' => 'failed', 'exit_code' => 1, 'output' => 'Agent failed.'];
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'status' => 'intake',
+            'active_stage' => 'contexto',
+            'started_at' => now(),
+        ]);
+
+        $this->post(route('development-runs.technical-brief.store', $run))
+            ->assertRedirect(route('development-runs.show', $run));
+
+        $brief = $run->artifacts()->where('type', 'technical_brief')->firstOrFail();
+        $this->assertSame('system', $brief->created_by);
+        $this->assertSame('deterministic', $brief->metadata['generator']);
+        $this->assertTrue($brief->metadata['fallback']);
+        $this->assertSame('opencode_failed', $brief->metadata['fallback_reason']);
+        $this->assertSame(1, $brief->metadata['exit_code']);
+        $this->assertStringContainsString('Objetivo', $brief->body);
     }
 
     public function test_generating_a_technical_brief_twice_does_not_create_duplicates(): void
