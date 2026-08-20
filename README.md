@@ -17,11 +17,11 @@ From this project directory in PowerShell:
 .\bin\dev-orchestrator.ps1 -Port 8001
 ```
 
-This single command configures the project-local MAMP PHP environment, checks the SQLite extensions, creates `.env` and the SQLite database when missing, installs dependencies when needed, generates an application key, runs migrations, and serves the dashboard at `http://127.0.0.1:8001`. Press Ctrl+C to stop it.
+This single command configures the project-local MAMP PHP environment, checks the SQLite extensions, creates `.env` and the SQLite database when missing, installs dependencies when needed, generates an application key, runs migrations, and serves Command Flow at `http://127.0.0.1:8001`. Press Ctrl+C to stop it.
 
 Use `-SetupOnly` to prepare the environment without starting the server. Use `-NoInstall` when dependencies are already present and you want to skip Composer and npm installation.
 
-After the dashboard is running, use the CLI commands below for task management:
+After Command Flow is running, use the CLI commands below for task management:
 
 ```powershell
 .\bin\artisan.ps1 migrate
@@ -63,7 +63,7 @@ Use the launcher for the local dashboard. It prepares the required PHP, SQLite, 
 .\bin\dev-orchestrator.ps1 -Port 8001
 ```
 
-Then open `http://127.0.0.1:8001`. Add `-SetupOnly` to run preparation without serving, or `-NoInstall` to skip dependency installation when `vendor` and `node_modules` already exist.
+Then open `http://127.0.0.1:8001`. Command Flow is the initial experience; the task dashboard remains available at `http://127.0.0.1:8001/tasks`. Add `-SetupOnly` to run preparation without serving, or `-NoInstall` to skip dependency installation when `vendor` and `node_modules` already exist.
 
 This is enough for the current dashboard because the Blade views use server-rendered HTML and do not require a frontend dev server.
 
@@ -73,7 +73,39 @@ Abrí **Tickets operativos** desde la navegación del dashboard para cargar pedi
 
 ### Integración con Gmail
 
-Abrí **Configuración** para cargar localmente las credenciales de Google OAuth y OpenAI; los secretos se cifran en SQLite con `APP_KEY`. El `.env` continúa como fallback opcional. Después abrí **Integraciones** para conectar una cuenta Gmail o Google Workspace mediante OAuth. La conexión guarda tokens cifrados localmente, usa permisos de solo lectura, permite importar cadenas para borradores revisables y puede usar OpenAI cuando se configura explícitamente. La configuración de Google Cloud, OpenAI y los límites de seguridad están en [docs/gmail-oauth.md](docs/gmail-oauth.md).
+Abrí **Integraciones** y elegí **Conectar con Google** para conectar una cuenta Gmail o Google Workspace mediante OAuth. La conexión guarda tokens cifrados localmente, usa permisos de solo lectura y permite importar cadenas para borradores revisables. Solo la primera vez, o al cambiar la aplicación de Google Cloud, completá las credenciales en **Configuración > Configuración avanzada de Google OAuth**; los secretos se cifran en SQLite con `APP_KEY` y el `.env` continúa como fallback opcional. La configuración de Google Cloud, OpenAI y los límites de seguridad están en [docs/gmail-oauth.md](docs/gmail-oauth.md).
+
+### Command Flow y Development Run experimental
+
+`http://127.0.0.1:8001` abre Command Flow, la entrada local para convertir una necesidad concreta en un Development Run con evidencia por etapa.
+
+Flujo principal:
+
+1. **Contexto** — guarda título, contexto inicial, repositorio/proyecto y artifact de contexto.
+2. **Plan** — genera el brief técnico y el contrato del agente de Plan.
+3. **Slices** — divide el trabajo en slices revisables.
+4. **Build** — prepara un prompt controlado y ejecuta OpenCode en background con el worker `build`.
+5. **QA** — corre verificaciones locales seguras (`php artisan test` o `npm test`, salvo override).
+6. **Revisión** — genera el cierre local con handoff humano.
+
+Ejecución background:
+
+- Build y QA marcan `build_running`/`qa_running`, guardan PID, PHP usado, log path y error log path.
+- La pantalla consulta `GET /development-runs/{run}/status` y se actualiza cuando cambia el estado.
+- **Cancelar ejecución** detiene el árbol de procesos y marca `build_cancelled` o `qa_cancelled`.
+- Si el proceso muere solo, al abrir el run o consultar status se marca `build_interrupted` o `qa_interrupted` y queda habilitado el retry.
+- Al terminar, el artifact background deja `finished_at` y cambia de `running` a `completed`, `failed` o `blocked`.
+
+`gentle-orchestrator` queda como coordinador conceptual del Development Run; no ejecuta Build directamente. La ejecución sigue prohibiendo stage, commit, push y cambios de remotos. El mock visual original está en `http://127.0.0.1:8001/development-runs/demo` y la referencia visual en [docs/development-run-cockpit-mock.svg](docs/development-run-cockpit-mock.svg).
+
+Variables opcionales para ajustar el perfil de ejecución de Development Runs:
+
+- `DEVELOPMENT_RUN_OPENCODE_ORCHESTRATOR_AGENT` — coordinador conceptual; default `gentle-orchestrator`.
+- `DEVELOPMENT_RUN_OPENCODE_BUILD_AGENT` — worker que ejecuta Build; default `build`.
+- `DEVELOPMENT_RUN_OPENCODE_MODEL` — modelo del worker; default `openai/gpt-5.5`.
+- `DEVELOPMENT_RUN_OPENCODE_VARIANT` — esfuerzo/variant; default `high`.
+- `DEVELOPMENT_RUN_QA_AGENT` — etiqueta del agente QA; default `local-qa-runner`.
+- `DEVELOPMENT_RUN_QA_COMMAND` — comando QA opcional; si no está, se autodetecta `php artisan test` o `npm test`.
 
 ### Full development environment
 

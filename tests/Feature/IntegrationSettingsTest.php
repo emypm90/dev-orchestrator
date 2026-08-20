@@ -34,6 +34,7 @@ class IntegrationSettingsTest extends TestCase
 
         $this->get(route('settings.integrations.edit'))
             ->assertOk()
+            ->assertSee('Configuración avanzada de Google OAuth')
             ->assertSee('env-google-client')
             ->assertSee('*******cret')
             ->assertSee('*************cret')

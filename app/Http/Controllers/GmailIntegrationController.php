@@ -88,7 +88,7 @@ class GmailIntegrationController extends Controller
     public function connect(Request $request, GoogleOAuthService $google): RedirectResponse
     {
         if (! $google->isConfigured()) {
-            return back()->withErrors(['gmail' => 'Configurá GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET antes de conectar Gmail.']);
+            return back()->withErrors(['gmail' => 'Completá la configuración avanzada de Google OAuth antes de conectar Gmail.']);
         }
 
         $state = Str::random(64);

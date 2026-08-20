@@ -22,13 +22,26 @@ class GmailIntegrationTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_gmail_page_renders_missing_configuration_guidance(): void
+    public function test_gmail_page_renders_a_simple_connection_flow_when_disconnected(): void
     {
         $this->get(route('integrations.gmail.index'))
             ->assertOk()
-            ->assertSee('Conectá Gmail')
-            ->assertSee('Configuración pendiente')
-            ->assertSee('GOOGLE_OAUTH_CLIENT_ID', false);
+            ->assertSee('Conectá tu cuenta Gmail')
+            ->assertSee('Conectar con Google')
+            ->assertSee('configuración avanzada de Google OAuth')
+            ->assertDontSee('GOOGLE_OAUTH_CLIENT_ID', false);
+    }
+
+    public function test_gmail_page_shows_the_connected_account_and_reconnection_actions(): void
+    {
+        $this->connectedAccount(['display_name' => 'Emiliano']);
+
+        $this->get(route('integrations.gmail.index'))
+            ->assertOk()
+            ->assertSee('Gmail está conectado')
+            ->assertSee('emiliano@18dev.com')
+            ->assertSee('Reconectar con Google')
+            ->assertSee('Desconectar Gmail');
     }
 
     public function test_connect_is_blocked_with_clear_error_when_google_is_not_configured(): void
@@ -59,6 +72,13 @@ class GmailIntegrationTest extends TestCase
 
         $this->withSession(['gmail_oauth_state' => 'expected-state'])
             ->get(route('integrations.gmail.callback', ['code' => 'authorization-code', 'state' => 'wrong-state']))
+            ->assertRedirect(route('integrations.gmail.index'))
+            ->assertSessionHasErrors('gmail');
+    }
+
+    public function test_short_callback_route_rejects_missing_state_with_the_existing_callback_logic(): void
+    {
+        $this->get('/integrations/gmail/callback?code=authorization-code')
             ->assertRedirect(route('integrations.gmail.index'))
             ->assertSessionHasErrors('gmail');
     }

@@ -13,9 +13,9 @@ class TaskDashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_root_shows_the_task_dashboard_instead_of_the_welcome_page(): void
+    public function test_task_dashboard_remains_available_from_its_secondary_route(): void
     {
-        $this->get('/')
+        $this->get('/tasks')
             ->assertOk()
             ->assertSee('Centro de control')
             ->assertSee('Las decisiones de revisión se registran localmente y nunca modifican el estado de Git.')
@@ -33,7 +33,7 @@ class TaskDashboardTest extends TestCase
             'last_acceptance_status' => 'passed',
         ]);
 
-        $this->get('/?attention=1')
+        $this->get('/tasks?attention=1')
             ->assertOk()
             ->assertSee('Cola de atención')
             ->assertSee('revisión humana')

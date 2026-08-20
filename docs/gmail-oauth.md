@@ -2,7 +2,15 @@
 
 Esta integración guarda la autorización local de una cuenta Gmail o Google Workspace y puede leer cadenas reales mediante la API de Gmail en modo solo lectura.
 
-## Flujo actual por etapas
+## Conexión desde el dashboard
+
+1. Abrí **Integraciones** y elegí **Conectar con Google**.
+2. Elegí la cuenta y aprobá los permisos de solo lectura en Google.
+3. Al volver al dashboard, la cuenta conectada queda visible y podés reconectarla o desconectarla.
+
+La configuración técnica de Google OAuth queda en **Configuración > Configuración avanzada de Google OAuth**. Solo hace falta antes de la primera conexión o al cambiar la aplicación de Google Cloud.
+
+## Flujo de correo por etapas
 
 1. OAuth conecta Gmail y almacena la autorización local.
 2. La pantalla de Gmail permite buscar cadenas recientes, importar una seleccionada y crear un borrador de ticket. También permite pegar una cadena manualmente.
@@ -31,8 +39,8 @@ El texto de los correos solo se envía a OpenAI cuando hay una clave configurada
 2. Configurá la pantalla de consentimiento OAuth. Para una cuenta Workspace, verificá con el administrador si debe ser interna.
 3. En **APIs y servicios**, habilitá la Gmail API.
 4. Creá credenciales de tipo **ID de cliente OAuth**, aplicación web.
-5. Agregá la URL de redirección autorizada local. Con el launcher del proyecto suele ser `http://127.0.0.1:8001/integrations/gmail/oauth/callback`; ajustá host o puerto si corresponde.
-6. Copiá el ID, secreto y URI de redirección en **Configuración** del dashboard. Como alternativa o fallback, podés cargarlos al `.env` local, sin versionarlos:
+5. Agregá la URL de redirección autorizada local. Se aceptan `http://127.0.0.1:8001/integrations/gmail/callback` y `http://127.0.0.1:8001/integrations/gmail/oauth/callback`; ajustá host o puerto si corresponde. Usá la misma URI en Google Cloud y en la configuración de la aplicación.
+6. Copiá el ID, secreto y URI de redirección en **Configuración > Configuración avanzada de Google OAuth**. Como alternativa o fallback, podés cargarlos al `.env` local, sin versionarlos:
 
 ```dotenv
 GOOGLE_OAUTH_CLIENT_ID=

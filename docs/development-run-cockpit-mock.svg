@@ -1,0 +1,152 @@
+<svg width="1440" height="1080" viewBox="0 0 1440 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(720 510) rotate(90) scale(680 920)">
+      <stop stop-color="#101827"/>
+      <stop offset="0.58" stop-color="#060A12"/>
+      <stop offset="1" stop-color="#02040A"/>
+    </radialGradient>
+    <radialGradient id="glowCyan" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(712 512) rotate(90) scale(360 620)">
+      <stop stop-color="#22D3EE" stop-opacity="0.18"/>
+      <stop offset="0.45" stop-color="#22D3EE" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="runLine" x1="235" y1="740" x2="1205" y2="740" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="0.52" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="32" stdDeviation="46" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="cyanGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="16" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse">
+      <path d="M 42 0 L 0 0 0 42" fill="none" stroke="#94A3B8" stroke-opacity="0.035" stroke-width="1"/>
+    </pattern>
+    <style>
+      .mono-xs{font:600 12px 'JetBrains Mono','Cascadia Code',Consolas,monospace;letter-spacing:.08em;fill:#64748B}
+      .mono-sm{font:500 15px 'JetBrains Mono','Cascadia Code',Consolas,monospace;fill:#94A3B8}
+      .mono{font:600 18px 'JetBrains Mono','Cascadia Code',Consolas,monospace;fill:#DDEBFF}
+      .mono-lg{font:700 34px 'JetBrains Mono','Cascadia Code',Consolas,monospace;fill:#F8FAFC;letter-spacing:-1.2px}
+      .mono-xl{font:800 54px 'JetBrains Mono','Cascadia Code',Consolas,monospace;fill:#F8FAFC;letter-spacing:-2.8px}
+      .sans{font:400 17px Inter,Segoe UI,Arial,sans-serif;fill:#AAB8CF}
+      .sans-sm{font:500 14px Inter,Segoe UI,Arial,sans-serif;fill:#7F8EA6}
+      .ok{fill:#34D399}.cyan{fill:#22D3EE}.violet{fill:#A78BFA}.white{fill:#F8FAFC}.muted{fill:#64748B}
+    </style>
+  </defs>
+
+  <rect width="1440" height="1080" fill="url(#bgA)"/>
+  <rect width="1440" height="1080" fill="url(#grid)"/>
+  <rect width="1440" height="1080" fill="url(#glowCyan)"/>
+
+  <!-- ambient command traces -->
+  <text x="64" y="170" class="mono-xs" opacity="0.38">$ opencode run --workflow=development --mode=guided</text>
+  <text x="1010" y="198" class="mono-xs" opacity="0.32">context.loaded ✓</text>
+  <text x="102" y="908" class="mono-xs" opacity="0.24">qa.playwright.chromium :: waiting_for_signal</text>
+  <text x="1020" y="870" class="mono-xs" opacity="0.22">weekly.buffer += run.summary</text>
+
+  <!-- top nav minimal -->
+  <g transform="translate(64 48)">
+    <rect x="0" y="0" width="34" height="34" rx="9" fill="#020617" stroke="#22D3EE" stroke-opacity="0.45"/>
+    <text x="9" y="23" font-family="JetBrains Mono,Cascadia Code,monospace" font-size="18" font-weight="800" fill="#22D3EE">&gt;_</text>
+    <text x="52" y="15" class="mono">command.flow</text>
+    <text x="52" y="38" class="mono-xs">18DEV DEVELOPMENT OS</text>
+  </g>
+  <g transform="translate(1054 54)">
+    <text x="0" y="16" class="mono-xs" fill="#22D3EE">RUN-024</text>
+    <circle cx="92" cy="11" r="4" fill="#34D399" filter="url(#cyanGlow)"/>
+    <text x="108" y="16" class="mono-xs">LIVE</text>
+  </g>
+
+  <!-- central stage card -->
+  <g filter="url(#softShadow)">
+    <rect x="250" y="222" width="940" height="430" rx="36" fill="#050914" fill-opacity="0.86" stroke="#1E293B"/>
+    <rect x="250" y="222" width="940" height="430" rx="36" stroke="#22D3EE" stroke-opacity="0.18"/>
+    <path d="M286 282 H1154" stroke="#1E293B" stroke-width="1"/>
+    <circle cx="298" cy="252" r="6" fill="#FB7185" opacity="0.8"/>
+    <circle cx="320" cy="252" r="6" fill="#F59E0B" opacity="0.8"/>
+    <circle cx="342" cy="252" r="6" fill="#34D399" opacity="0.8"/>
+
+    <text x="310" y="346" class="mono-xs cyan">CURRENT STAGE</text>
+    <text x="310" y="415" class="mono-xl">qa is validating</text>
+    <text x="310" y="472" class="mono-lg" fill="#AAB8CF">checkout flow</text>
+    <text x="310" y="528" class="sans">Playwright está probando el entorno local. Si algo falla, el sistema</text>
+    <text x="310" y="556" class="sans">devuelve feedback al equipo de implementación sin pedirte repetir contexto.</text>
+
+    <!-- command output -->
+    <g transform="translate(310 590)">
+      <text x="0" y="0" class="mono-sm"><tspan fill="#22D3EE">›</tspan> context.normalize <tspan fill="#34D399">done</tspan></text>
+      <text x="275" y="0" class="mono-sm"><tspan fill="#22D3EE">›</tspan> architecture.slice <tspan fill="#34D399">done</tspan></text>
+      <text x="550" y="0" class="mono-sm"><tspan fill="#22D3EE">›</tspan> qa.playwright <tspan fill="#22D3EE">running</tspan><tspan fill="#22D3EE">_</tspan></text>
+    </g>
+  </g>
+
+  <!-- right floating action surface -->
+  <g transform="translate(970 360)">
+    <rect x="0" y="0" width="178" height="56" rx="18" fill="url(#accent)"/>
+    <text x="35" y="35" font-family="Inter,Segoe UI,Arial" font-size="15" font-weight="800" fill="#020617">ver evidencia</text>
+    <rect x="0" y="72" width="178" height="56" rx="18" fill="#020617" stroke="#334155"/>
+    <text x="45" y="107" font-family="Inter,Segoe UI,Arial" font-size="15" font-weight="800" fill="#E2E8F0">pedir ajuste</text>
+    <rect x="0" y="144" width="178" height="56" rx="18" fill="#020617" stroke="#334155"/>
+    <text x="59" y="179" font-family="Inter,Segoe UI,Arial" font-size="15" font-weight="800" fill="#E2E8F0">ver diff</text>
+  </g>
+
+  <!-- flow rail -->
+  <g transform="translate(235 732)">
+    <path d="M0 8 H970" stroke="url(#runLine)" stroke-width="2" stroke-linecap="round"/>
+    <g transform="translate(0 0)">
+      <circle cx="0" cy="8" r="13" fill="#020617" stroke="#34D399" stroke-width="2"/>
+      <circle cx="0" cy="8" r="5" fill="#34D399"/>
+      <text x="-34" y="54" class="mono-xs ok">context</text>
+    </g>
+    <g transform="translate(190 0)">
+      <circle cx="0" cy="8" r="13" fill="#020617" stroke="#34D399" stroke-width="2"/>
+      <circle cx="0" cy="8" r="5" fill="#34D399"/>
+      <text x="-30" y="54" class="mono-xs ok">design</text>
+    </g>
+    <g transform="translate(380 0)">
+      <circle cx="0" cy="8" r="13" fill="#020617" stroke="#34D399" stroke-width="2"/>
+      <circle cx="0" cy="8" r="5" fill="#34D399"/>
+      <text x="-26" y="54" class="mono-xs ok">build</text>
+    </g>
+    <g transform="translate(570 0)" filter="url(#cyanGlow)">
+      <circle cx="0" cy="8" r="21" fill="#061826" stroke="#22D3EE" stroke-width="2"/>
+      <circle cx="0" cy="8" r="7" fill="#22D3EE"/>
+      <text x="-10" y="58" class="mono-xs cyan">qa</text>
+    </g>
+    <g transform="translate(760 0)">
+      <circle cx="0" cy="8" r="11" fill="#020617" stroke="#475569" stroke-width="2"/>
+      <text x="-28" y="54" class="mono-xs">review</text>
+    </g>
+    <g transform="translate(970 0)">
+      <circle cx="0" cy="8" r="11" fill="#020617" stroke="#475569" stroke-width="2"/>
+      <text x="-26" y="54" class="mono-xs">close</text>
+    </g>
+  </g>
+
+  <!-- minimal bottom insight cards -->
+  <g transform="translate(300 850)">
+    <rect x="0" y="0" width="250" height="86" rx="22" fill="#020617" fill-opacity="0.72" stroke="#1E293B"/>
+    <text x="22" y="33" class="mono-xs">CONFIDENCE</text>
+    <text x="22" y="64" class="mono" fill="#F8FAFC">high · 87%</text>
+  </g>
+  <g transform="translate(595 850)">
+    <rect x="0" y="0" width="250" height="86" rx="22" fill="#020617" fill-opacity="0.72" stroke="#1E293B"/>
+    <text x="22" y="33" class="mono-xs">NEEDS YOU</text>
+    <text x="22" y="64" class="mono" fill="#F8FAFC">not yet</text>
+  </g>
+  <g transform="translate(890 850)">
+    <rect x="0" y="0" width="250" height="86" rx="22" fill="#020617" fill-opacity="0.72" stroke="#1E293B"/>
+    <text x="22" y="33" class="mono-xs">NEXT</text>
+    <text x="22" y="64" class="mono" fill="#F8FAFC">human review</text>
+  </g>
+
+  <!-- motion notes -->
+  <text x="64" y="1010" class="mono-xs" opacity="0.55">motion notes: blinking caret · active node pulse · stage card morphs between context/design/build/qa/review · evidence opens as drawer</text>
+</svg>
