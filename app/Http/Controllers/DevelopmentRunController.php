@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\DevelopmentRun;
+use App\Models\OrchestratorProject;
+use App\Services\ContextIngestion\ContextAttachmentService;
 use App\Services\DevelopmentRuns\DevelopmentRunBackgroundProcess;
 use App\Services\DevelopmentRuns\DevelopmentRunStaleExecutionDetector;
 use App\Services\DevelopmentRuns\OpenCodeExecutionRunner;
+use App\Services\DevelopmentRuns\ProjectContextAssembler;
 use App\Services\DevelopmentRuns\StageAgentContract;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -16,22 +19,43 @@ class DevelopmentRunController extends Controller
 {
     public function create()
     {
-        return view('development-runs.create');
+        return view('development-runs.create', ['project' => null]);
+    }
+
+    public function createForProject(OrchestratorProject $project)
+    {
+        return view('development-runs.create', ['project' => $project]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        return $this->storeRun($request, null);
+    }
+
+    public function storeForProject(Request $request, OrchestratorProject $project, ProjectContextAssembler $assembler, ContextAttachmentService $attachments): RedirectResponse
+    {
+        return $this->storeRun($request, $project, $assembler, $attachments);
+    }
+
+    private function storeRun(Request $request, ?OrchestratorProject $project = null, ?ProjectContextAssembler $assembler = null, ?ContextAttachmentService $attachments = null): RedirectResponse
+    {
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'initial_context' => ['required', 'string'],
-            'repository' => ['nullable', 'string', 'max:255'],
-            'project' => ['nullable', 'string', 'max:255'],
+            'repository' => [$project ? 'sometimes' : 'nullable', 'string', 'max:1024'],
+            'project' => [$project ? 'sometimes' : 'nullable', 'string', 'max:255'],
             'priority' => ['nullable', 'string', 'max:50'],
+            ...($project ? ContextAttachmentService::validationRules(true) : []),
         ]);
 
-        $run = DB::transaction(function () use ($data) {
+        $run = DB::transaction(function () use ($data, $project, $assembler, $attachments) {
+            $runData = collect($data)->except(['context_attachments'])->all();
+
             $run = DevelopmentRun::create([
-                ...$data,
+                ...$runData,
+                'project_id' => $project?->id,
+                'repository' => $project?->repo_path ?? ($runData['repository'] ?? null),
+                'project' => $project?->name ?? ($runData['project'] ?? null),
                 'status' => 'intake',
                 'active_stage' => 'contexto',
                 'started_at' => now(),
@@ -44,6 +68,22 @@ class DevelopmentRunController extends Controller
                 'created_by' => 'manual',
             ]);
 
+            if ($project && $attachments) {
+                foreach ($data['context_attachments'] ?? [] as $file) {
+                    $attachments->storeUploaded($file, $project, $run);
+                }
+            }
+
+            if ($project && $assembler) {
+                $run->artifacts()->create([
+                    'type' => 'project_context',
+                    'title' => 'Contexto del proyecto',
+                    'body' => $assembler->forRun($run->fresh(['projectModel', 'artifacts'])),
+                    'created_by' => 'system',
+                    'metadata' => ['generator' => 'ProjectContextAssembler', 'manual_only' => true],
+                ]);
+            }
+
             return $run;
         });
 
@@ -54,7 +94,7 @@ class DevelopmentRunController extends Controller
     {
         $developmentRun = $staleExecutionDetector->recoverIfStale($developmentRun);
 
-        return view('development-runs.show', ['run' => $developmentRun->load(['artifacts' => fn ($query) => $query->oldest()])]);
+        return view('development-runs.show', ['run' => $developmentRun->load(['projectModel', 'contextAttachments' => fn ($query) => $query->latest(), 'artifacts' => fn ($query) => $query->oldest()])]);
     }
 
     public function status(DevelopmentRun $developmentRun, DevelopmentRunStaleExecutionDetector $staleExecutionDetector): JsonResponse
@@ -310,8 +350,8 @@ class DevelopmentRunController extends Controller
             ."- No ejecutar OpenCode todavía.\n"
             ."- No commitear, stagear, pushear ni cambiar remotos.\n"
             ."- No correr Playwright.\n\n"
-            ."Contexto del run\n"
-            ."- {$run->initial_context}\n\n"
+            ."Contexto ensamblado del run\n"
+            .$this->assembledContextFor($run)."\n\n"
             ."Próximo paso\n"
             .'- Ejecutar el slice seleccionado con OpenCode en una etapa Build controlada.';
     }
@@ -355,8 +395,8 @@ class DevelopmentRunController extends Controller
             ."Punto de partida: {$buildPlan->title}\n"
             .'Repositorio objetivo: '.($run->repository ?: 'No definido')."\n"
             .'Proyecto: '.($run->project ?: 'No definido')."\n\n"
-            ."Contexto inicial\n"
-            ."{$run->initial_context}\n\n"
+            ."Contexto ensamblado\n"
+            .$this->assembledContextFor($run)."\n\n"
             ."Plan de build seleccionado\n"
             ."{$buildPlan->body}\n\n"
             ."Tarea\n"
@@ -380,6 +420,11 @@ class DevelopmentRunController extends Controller
             ."Riesgos o dudas:\n\n"
             ."Estado actual\n"
             .'- Este prompt está preparado, pero todavía no se ejecutó OpenCode.';
+    }
+
+    private function assembledContextFor(DevelopmentRun $run): string
+    {
+        return app(ProjectContextAssembler::class)->forRun($run->loadMissing(['projectModel', 'artifacts']));
     }
 
     public function runQa(DevelopmentRun $developmentRun, DevelopmentRunBackgroundProcess $background): RedirectResponse

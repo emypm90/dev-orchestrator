@@ -41,6 +41,8 @@
         .running-note { max-width: 860px; margin-top: 18px; padding: 12px 14px; color: #d8fbff; border: 1px solid rgba(86, 234, 249, .24); background: rgba(8, 18, 32, .62); font: .78rem "Cascadia Code", Consolas, monospace; line-height: 1.6; }
         .details { margin: 18px 0 0; color: #7890aa; font: .72rem "Cascadia Code", Consolas, monospace; }
         .repo-form { display: grid; gap: 8px; max-width: 860px; margin-top: 22px; padding: 16px 18px; border: 1px solid rgba(34, 211, 238, .14); background: linear-gradient(90deg, rgba(5, 12, 23, .72), rgba(8, 18, 32, .32)); }
+        .project-context { max-width: 860px; margin-top: 22px; padding: 16px 18px; border: 1px solid rgba(85, 239, 176, .18); background: rgba(8, 31, 28, .34); }
+        .project-context p { margin: 8px 0 0; color: #a8b7ca; font: .78rem "Cascadia Code", Consolas, monospace; line-height: 1.6; white-space: pre-wrap; }
         .repo-form label { color: #9aeaf5; font: .67rem "Cascadia Code", Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
         .repo-row { display: flex; flex-wrap: wrap; gap: 10px; }
         .repo-row input { flex: 1 1 360px; min-height: 41px; padding: 10px 12px; color: #e8f1ff; border: 1px solid rgba(122, 146, 173, .34); background: rgba(3, 11, 22, .78); font: 500 .78rem "Cascadia Code", Consolas, monospace; outline: none; }
@@ -139,6 +141,23 @@
                         @endforeach
                     </section>
                     <p class="details">{{ $run->repository ? "Repositorio: {$run->repository}" : 'Repositorio aún no definido' }}{{ $run->project ? " · Proyecto: {$run->project}" : '' }}</p>
+                    @if ($run->projectModel)
+                        <section class="project-context" aria-label="Contexto de proyecto heredado">
+                            <p class="kicker">Contexto heredado / <a href="{{ route('projects.show', $run->projectModel) }}">{{ $run->projectModel->name }}</a></p>
+                            <p>{{ $run->projectModel->rules ?: 'Sin contexto reutilizable manual registrado.' }}</p>
+                            @forelse ($run->contextAttachments as $attachment)
+                                <p>{{ $attachment->original_name }} · {{ $attachment->status }}{{ $attachment->status_reason ? ' · '.$attachment->status_reason : '' }}</p>
+                            @empty
+                                <p>Sin adjuntos específicos del run.</p>
+                            @endforelse
+                        </section>
+                    @else
+                        <section class="project-context" aria-label="Contexto de proyecto heredado">
+                            <p class="kicker">Contexto heredado</p>
+                            <p>Este run todavía no está asociado a un proyecto durable.</p>
+                            <p>Los adjuntos privados aparecen acá con estado uploaded, extracting, ready, failed o blocked.</p>
+                        </section>
+                    @endif
                     @error('repository')<p class="details">{{ $message }}</p>@enderror
                     <form class="repo-form" method="post" action="{{ route('development-runs.repository.update', $run) }}">
                         @csrf

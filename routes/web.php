@@ -1,10 +1,12 @@
 <?php
 
-use App\Http\Controllers\EmailThreadImportController;
 use App\Http\Controllers\DevelopmentRunController;
+use App\Http\Controllers\EmailThreadImportController;
 use App\Http\Controllers\GmailIntegrationController;
 use App\Http\Controllers\IntegrationSettingsController;
 use App\Http\Controllers\OperationalTicketController;
+use App\Http\Controllers\ProjectContextAttachmentController;
+use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskDashboardController;
 use App\Models\DevelopmentRun;
 use Illuminate\Support\Facades\Route;
@@ -18,6 +20,15 @@ Route::get('/', function () {
     return view('home', compact('activeRun'));
 })->name('home');
 Route::get('/tasks', [TaskDashboardController::class, 'index'])->name('tasks.index');
+Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
+Route::get('/projects/create', [ProjectController::class, 'create'])->name('projects.create');
+Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
+Route::post('/projects/{project}/context-attachments', [ProjectContextAttachmentController::class, 'store'])->name('projects.context-attachments.store');
+Route::get('/projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
+Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
+Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
+Route::get('/projects/{project}/development-runs/create', [DevelopmentRunController::class, 'createForProject'])->name('projects.development-runs.create');
+Route::post('/projects/{project}/development-runs', [DevelopmentRunController::class, 'storeForProject'])->name('projects.development-runs.store');
 Route::get('/development-runs/create', [DevelopmentRunController::class, 'create'])->name('development-runs.create');
 Route::post('/development-runs', [DevelopmentRunController::class, 'store'])->name('development-runs.store');
 Route::view('/development-runs/demo', 'development-runs.demo')->name('development-runs.demo');

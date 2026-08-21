@@ -8,6 +8,8 @@ use Throwable;
 
 class DevelopmentRunAgentStageService
 {
+    public function __construct(private readonly ProjectContextAssembler $projectContextAssembler) {}
+
     public function executePlan(DevelopmentRun $run, OpenCodeExecutionRunner $runner, StageAgentContract $contract): void
     {
         if ($run->fresh()->status !== 'plan_running') {
@@ -249,7 +251,7 @@ class DevelopmentRunAgentStageService
     {
         return "Development Run\n"
             ."Título: {$run->title}\n"
-            ."Contexto inicial:\n{$run->initial_context}\n\n"
+            ."Contexto ensamblado:\n{$this->projectContextAssembler->forRun($run->loadMissing(['projectModel', 'artifacts']))}\n\n"
             .'Repositorio declarado: '.($run->repository ?: 'No definido')."\n"
             .'Proyecto: '.($run->project ?: 'No definido')."\n"
             .'Prioridad: '.($run->priority ?: 'No definida')."\n\n"
@@ -320,8 +322,9 @@ class DevelopmentRunAgentStageService
 
     private function technicalBriefFor(DevelopmentRun $run): string
     {
-        $context = trim(preg_replace('/\s+/', ' ', $run->initial_context));
-        $restrictionLines = collect(preg_split('/\R+|(?<=[.!?])\s+/', $run->initial_context))
+        $assembledContext = $this->projectContextAssembler->forRun($run->loadMissing(['projectModel', 'artifacts']));
+        $context = trim(preg_replace('/\s+/', ' ', $assembledContext));
+        $restrictionLines = collect(preg_split('/\R+|(?<=[.!?])\s+/', $assembledContext))
             ->filter(fn (string $line) => preg_match('/\b(no tocar|no|restricci[oó]n|debe|necesita)\b/i', $line))
             ->map(fn (string $line) => '- '.trim($line, " \t\n\r\0\x0B.-"))
             ->take(3)

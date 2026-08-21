@@ -37,19 +37,26 @@
     <div class="shell">
         <header><a class="brand" href="{{ route('home') }}">command.flow</a><span class="meta">nuevo / intake</span></header>
         <main>
-            <p class="eyebrow">Development Run / etapa 01</p>
+            <p class="eyebrow">Development Run / etapa 01{{ $project ? ' / '.$project->name : '' }}</p>
             <h1>Arranquemos por el<br><span>contexto.</span></h1>
-            <p class="lead">Describí el cambio con tus palabras. Este primer registro no ejecuta agentes, pruebas ni acciones sobre Git.</p>
-            <form method="post" action="{{ route('development-runs.store') }}">
+            <p class="lead">{{ $project ? "El run va a heredar repositorio y contexto reutilizable de {$project->name}." : 'Describí el cambio con tus palabras. Este primer registro no ejecuta agentes, pruebas ni acciones sobre Git.' }}</p>
+            <form method="post" action="{{ $project ? route('projects.development-runs.store', $project) : route('development-runs.store') }}" enctype="multipart/form-data">
                 @csrf
                 <label><span>Título del cambio</span><input name="title" value="{{ old('title') }}" required autofocus></label>
                 @error('title')<span class="error">{{ $message }}</span>@enderror
-                <label><span>Contexto inicial</span><textarea name="initial_context" required>{{ old('initial_context') }}</textarea><span class="hint">Qué necesitás resolver, por qué importa y cualquier restricción conocida.</span></label>
+                <label><span>{{ $project ? 'Contexto específico de la tarea' : 'Contexto inicial' }}</span><textarea name="initial_context" required>{{ old('initial_context') }}</textarea><span class="hint">Qué necesitás resolver, por qué importa y cualquier restricción conocida.</span></label>
                 @error('initial_context')<span class="error">{{ $message }}</span>@enderror
-                <div class="optional">
-                    <label><span>Repositorio (opcional)</span><input name="repository" value="{{ old('repository') }}"></label>
-                    <label><span>Proyecto (opcional)</span><input name="project" value="{{ old('project') }}"></label>
-                </div>
+                @if ($project)
+                    <p class="hint">Repositorio heredado: {{ $project->repo_path }}</p>
+                    <p class="hint">Proyecto: {{ $project->name }}</p>
+                    <label><span>Adjuntos de contexto (opcional)</span><input name="context_attachments[]" type="file" accept=".txt,.md,.markdown,.csv,.xlsx,.pptx,.mp3,.wav,.m4a,.mp4,.mov,.webm,text/plain,text/markdown,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,audio/mpeg,audio/wav,audio/mp4,video/mp4,video/quicktime,video/webm" multiple><span class="hint">TXT, Markdown y CSV se extraen como contexto. XLSX/PPTX/audio/video quedan privados y bloqueados hasta configurar extractor o transcripción.</span></label>
+                    @error('context_attachments.*')<span class="error">{{ $message }}</span>@enderror
+                @else
+                    <div class="optional">
+                        <label><span>Repositorio (opcional)</span><input name="repository" value="{{ old('repository') }}"></label>
+                        <label><span>Proyecto (opcional)</span><input name="project" value="{{ old('project') }}"></label>
+                    </div>
+                @endif
                 <label><span>Prioridad (opcional)</span><input name="priority" value="{{ old('priority') }}"></label>
                 <button type="submit">Crear Development Run</button>
             </form>
