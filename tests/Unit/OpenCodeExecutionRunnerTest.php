@@ -35,12 +35,18 @@ class OpenCodeExecutionRunnerTest extends TestCase
         $this->assertSame('openai/gpt-5.5', $reviewProfile['model']);
         $this->assertSame('high', $reviewProfile['variant']);
 
+        $qaProfile = $runner->qaProfile();
+        $this->assertSame('gentle-orchestrator', $qaProfile['orchestrator_agent']);
+        $this->assertSame('qa', $qaProfile['stage_agent']);
+        $this->assertSame('openai/gpt-5.5', $qaProfile['model']);
+        $this->assertSame('high', $qaProfile['variant']);
+
         $this->assertSame([
             'context' => 'manual-intake',
             'planning' => 'plan',
             'slicing' => 'slices',
             'build' => 'build',
-            'qa' => 'local-qa-runner',
+            'qa' => 'qa',
             'review' => 'review',
         ], $runner->stageAgents());
     }

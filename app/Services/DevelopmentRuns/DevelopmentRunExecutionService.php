@@ -80,6 +80,7 @@ class DevelopmentRunExecutionService
         }
 
         $agents = $openCodeRunner->stageAgents();
+        $qaReport = $this->qaReportResultFor($run, $workingDirectory, $result, $openCodeRunner);
         $nextStatus = match ($result['status']) {
             'passed' => 'qa_passed',
             'failed' => 'qa_failed',
@@ -87,11 +88,11 @@ class DevelopmentRunExecutionService
         };
         $nextStage = $result['status'] === 'passed' ? 'review' : 'qa';
 
-        DB::transaction(function () use ($run, $contract, $agents, $result, $nextStatus, $nextStage, $workingDirectory) {
+        DB::transaction(function () use ($run, $contract, $agents, $result, $qaReport, $nextStatus, $nextStage) {
             $run->artifacts()->firstOrCreate(
                 ['type' => 'stage_contract', 'title' => 'Contrato agente QA'],
                 [
-                    'body' => $contract->render('QA', $agents['qa'], 'Validar el resultado de Build con comandos seguros y evidencia reproducible.', ['opencode_execution', 'repository'], ['Ejecutar comando de QA detectado o configurado', 'Capturar salida', 'Decidir passed, failed o blocked'], ['qa_report', 'command', 'exit_code', 'evidence']),
+                    'body' => $contract->render('QA', $agents['qa'], 'Validar el resultado de Build con comandos seguros y evidencia reproducible.', ['opencode_execution', 'repository', 'QA runner output'], ['Ejecutar comando de QA detectado o configurado', 'Capturar salida', 'Ejecutar OpenCode con agente QA si está disponible', 'Interpretar evidencia sin modificar archivos', 'Usar fallback determinístico si el agente no responde'], ['qa_report', 'command', 'exit_code', 'evidence', 'diagnosis', 'status: passed | failed | blocked']),
                     'metadata' => ['stage' => 'qa', 'agent' => $agents['qa']],
                     'created_by' => 'system',
                 ],
@@ -101,9 +102,9 @@ class DevelopmentRunExecutionService
                 ['type' => 'qa_report'],
                 [
                     'title' => $result['status'] === 'passed' ? 'QA aprobado' : ($result['status'] === 'failed' ? 'QA falló' : 'QA bloqueado'),
-                    'body' => $this->qaReportBody($workingDirectory, $result),
-                    'metadata' => ['agent' => $agents['qa'], 'status' => $result['status'], 'exit_code' => $result['exit_code'], 'command' => $result['command']],
-                    'created_by' => 'qa-agent',
+                    'body' => $qaReport['body'],
+                    'metadata' => $qaReport['metadata'],
+                    'created_by' => $qaReport['created_by'],
                 ],
             );
 
@@ -169,6 +170,75 @@ class DevelopmentRunExecutionService
             'title' => "{$stage} {$titleStatus}",
             'metadata' => [...($artifact->metadata ?? []), 'status' => $normalizedStatus, 'finished_at' => now()->toISOString()],
         ]);
+    }
+
+    /**
+     * @param array{status: 'passed'|'failed'|'blocked', exit_code: int|null, command: string|null, output: string} $result
+     * @return array{body: string, metadata: array<string, mixed>, created_by: string}
+     */
+    private function qaReportResultFor(DevelopmentRun $run, string $workingDirectory, array $result, OpenCodeExecutionRunner $openCodeRunner): array
+    {
+        $profile = $openCodeRunner->qaProfile();
+        $fallback = fn (string $reason, ?int $agentExitCode = null, string $agentOutput = ''): array => [
+            'body' => $this->qaReportBody($workingDirectory, $result),
+            'metadata' => [
+                'generator' => 'deterministic',
+                'fallback' => true,
+                'fallback_reason' => $reason,
+                'status' => $result['status'],
+                'exit_code' => $result['exit_code'],
+                'command' => $result['command'],
+                'agent_exit_code' => $agentExitCode,
+                'opencode_output' => $agentOutput !== '' ? substr($agentOutput, 0, 2000) : null,
+                ...$profile,
+            ],
+            'created_by' => 'qa-agent',
+        ];
+
+        if (! $openCodeRunner->isAvailable()) {
+            return $fallback('opencode_unavailable');
+        }
+
+        try {
+            $agentResult = $openCodeRunner->runQaAnalysis($workingDirectory, $this->qaAnalysisPromptFor($run, $workingDirectory, $result));
+        } catch (Throwable $exception) {
+            return $fallback('opencode_exception', 1, $exception->getMessage());
+        }
+
+        if ($agentResult['status'] !== 'completed' || trim($agentResult['output']) === '') {
+            return $fallback('opencode_failed', $agentResult['exit_code'], $agentResult['output']);
+        }
+
+        return [
+            'body' => trim($agentResult['output']),
+            'metadata' => [
+                'generator' => 'opencode',
+                'fallback' => false,
+                'status' => $result['status'],
+                'exit_code' => $result['exit_code'],
+                'command' => $result['command'],
+                'agent_exit_code' => $agentResult['exit_code'],
+                'working_directory' => $workingDirectory,
+                ...$profile,
+            ],
+            'created_by' => 'opencode',
+        ];
+    }
+
+    /**
+     * @param array{status: 'passed'|'failed'|'blocked', exit_code: int|null, command: string|null, output: string} $result
+     */
+    private function qaAnalysisPromptFor(DevelopmentRun $run, string $workingDirectory, array $result): string
+    {
+        return "Development Run\n"
+            ."Título: {$run->title}\n"
+            ."Repositorio: {$workingDirectory}\n\n"
+            ."Resultado objetivo del runner local\n"
+            ."- Estado: {$result['status']}\n"
+            ."- Comando: ".($result['command'] ?: 'No ejecutado')."\n"
+            ."- Exit code: ".($result['exit_code'] === null ? 'N/A' : $result['exit_code'])."\n\n"
+            ."Evidencia cruda\n{$result['output']}\n\n"
+            ."Analizá esta evidencia y generá el reporte QA. No modifiques archivos. No ejecutes Git. No ejecutes comandos adicionales.";
     }
 
     /**

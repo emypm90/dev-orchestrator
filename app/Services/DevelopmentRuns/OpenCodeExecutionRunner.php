@@ -49,6 +49,14 @@ class OpenCodeExecutionRunner
     /**
      * @return array{status: 'completed'|'failed', exit_code: int, output: string}
      */
+    public function runQaAnalysis(string $workingDirectory, string $prompt): array
+    {
+        return $this->runStage($this->qaAgent(), $workingDirectory, $this->qaCliPrompt($prompt));
+    }
+
+    /**
+     * @return array{status: 'completed'|'failed', exit_code: int, output: string}
+     */
     private function runStage(string $agent, string $workingDirectory, string $prompt): array
     {
         $process = new Process(
@@ -128,6 +136,19 @@ class OpenCodeExecutionRunner
     }
 
     /**
+     * @return array{orchestrator_agent: string, stage_agent: string, model: string, variant: string}
+     */
+    public function qaProfile(): array
+    {
+        return [
+            'orchestrator_agent' => $this->orchestratorAgent(),
+            'stage_agent' => $this->qaAgent(),
+            'model' => $this->model(),
+            'variant' => $this->variant(),
+        ];
+    }
+
+    /**
      * @return array{context: string, planning: string, slicing: string, build: string, qa: string, review: string}
      */
     public function stageAgents(): array
@@ -137,7 +158,7 @@ class OpenCodeExecutionRunner
             'planning' => $this->planningAgent(),
             'slicing' => $this->slicingAgent(),
             'build' => $this->buildAgent(),
-            'qa' => env('DEVELOPMENT_RUN_QA_AGENT', 'local-qa-runner'),
+            'qa' => $this->qaAgent(),
             'review' => $this->reviewAgent(),
         ];
     }
@@ -174,6 +195,11 @@ class OpenCodeExecutionRunner
         return "EJECUCIÓN NO INTERACTIVA. REVIEW AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: sintetizar los artifacts del Development Run y generar un cierre local con evidencia, estado final y handoff humano. No pidas comandos, contexto ni confirmación. Respondé solo con el reporte de cierre, en español, usando secciones claras: Cierre del Development Run, Artifacts generados, Evidencia QA, Riesgos o dudas, Handoff humano.\n\n{$prompt}";
     }
 
+    private function qaCliPrompt(string $prompt): string
+    {
+        return "EJECUCIÓN NO INTERACTIVA. QA AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: analizar la evidencia cruda del runner QA local y producir un reporte reproducible con diagnóstico, decisión y próximos pasos. No pidas comandos, contexto ni confirmación. No cambies el resultado objetivo del runner: si el runner falló, reportá fallido; si pasó, reportá aprobado. Respondé solo con el reporte QA, en español, usando secciones claras: Resultado QA, Comando, Evidencia, Diagnóstico, Riesgos o dudas, Decisión del orquestador.\n\n{$prompt}";
+    }
+
     private function model(): string
     {
         return env('DEVELOPMENT_RUN_OPENCODE_MODEL', 'openai/gpt-5.5');
@@ -207,5 +233,10 @@ class OpenCodeExecutionRunner
     private function reviewAgent(): string
     {
         return env('DEVELOPMENT_RUN_OPENCODE_REVIEW_AGENT', 'review');
+    }
+
+    private function qaAgent(): string
+    {
+        return env('DEVELOPMENT_RUN_OPENCODE_QA_AGENT', env('DEVELOPMENT_RUN_QA_AGENT', 'qa'));
     }
 }

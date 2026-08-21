@@ -916,6 +916,97 @@ class DevelopmentRunTest extends TestCase
             ->assertSee('Cerrar run');
     }
 
+    public function test_qa_background_command_uses_the_opencode_qa_agent_when_available(): void
+    {
+        $directory = sys_get_temp_dir().DIRECTORY_SEPARATOR.'qa-agent-command-run-'.uniqid();
+        mkdir($directory);
+        app()->instance(QaExecutionRunner::class, new class extends QaExecutionRunner
+        {
+            public function run(string $workingDirectory): array
+            {
+                return ['status' => 'passed', 'exit_code' => 0, 'command' => 'php artisan test', 'output' => 'Tests passed.'];
+            }
+        });
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function runQaAnalysis(string $workingDirectory, string $prompt): array
+            {
+                return ['status' => 'completed', 'exit_code' => 0, 'output' => "Resultado QA\n- Reporte desde OpenCode QA\n\nDiagnóstico\n- Evidencia interpretada."];
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'repository' => $directory,
+            'status' => 'qa_running',
+            'active_stage' => 'qa',
+            'started_at' => now(),
+        ]);
+        $run->artifacts()->create(['type' => 'opencode_execution', 'title' => 'Ejecución OpenCode completada', 'body' => 'Build listo.']);
+        $run->artifacts()->create(['type' => 'qa_background_run', 'title' => 'QA en ejecución', 'body' => 'Corriendo.', 'metadata' => ['pid' => 5678, 'status' => 'running']]);
+
+        $this->artisan('development-run:execute-qa', ['run' => $run->id])->assertExitCode(0);
+
+        $report = $run->artifacts()->where('type', 'qa_report')->firstOrFail();
+        $this->assertSame('opencode', $report->created_by);
+        $this->assertSame('opencode', $report->metadata['generator']);
+        $this->assertFalse($report->metadata['fallback']);
+        $this->assertSame('qa', $report->metadata['stage_agent']);
+        $this->assertSame('passed', $report->metadata['status']);
+        $this->assertStringContainsString('Reporte desde OpenCode QA', $report->body);
+    }
+
+    public function test_qa_background_command_falls_back_when_the_opencode_qa_agent_fails(): void
+    {
+        $directory = sys_get_temp_dir().DIRECTORY_SEPARATOR.'qa-agent-fallback-run-'.uniqid();
+        mkdir($directory);
+        app()->instance(QaExecutionRunner::class, new class extends QaExecutionRunner
+        {
+            public function run(string $workingDirectory): array
+            {
+                return ['status' => 'failed', 'exit_code' => 1, 'command' => 'php artisan test', 'output' => 'Tests failed.'];
+            }
+        });
+        app()->instance(OpenCodeExecutionRunner::class, new class extends OpenCodeExecutionRunner
+        {
+            public function isAvailable(): bool
+            {
+                return true;
+            }
+
+            public function runQaAnalysis(string $workingDirectory, string $prompt): array
+            {
+                return ['status' => 'failed', 'exit_code' => 1, 'output' => 'QA agent failed.'];
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'repository' => $directory,
+            'status' => 'qa_running',
+            'active_stage' => 'qa',
+            'started_at' => now(),
+        ]);
+        $run->artifacts()->create(['type' => 'opencode_execution', 'title' => 'Ejecución OpenCode completada', 'body' => 'Build listo.']);
+        $run->artifacts()->create(['type' => 'qa_background_run', 'title' => 'QA en ejecución', 'body' => 'Corriendo.', 'metadata' => ['pid' => 5678, 'status' => 'running']]);
+
+        $this->artisan('development-run:execute-qa', ['run' => $run->id])->assertExitCode(0);
+
+        $report = $run->artifacts()->where('type', 'qa_report')->firstOrFail();
+        $this->assertSame('qa-agent', $report->created_by);
+        $this->assertSame('deterministic', $report->metadata['generator']);
+        $this->assertTrue($report->metadata['fallback']);
+        $this->assertSame('opencode_failed', $report->metadata['fallback_reason']);
+        $this->assertSame('failed', $report->metadata['status']);
+        $this->assertStringContainsString('Resultado QA', $report->body);
+        $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'qa_failed', 'active_stage' => 'qa']);
+    }
+
     public function test_review_closes_the_development_run_after_qa(): void
     {
         $run = DevelopmentRun::create([
