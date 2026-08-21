@@ -190,6 +190,69 @@ class DevelopmentRunTest extends TestCase
         $this->assertSame('interrupted', $artifact->metadata['status']);
     }
 
+    public function test_status_endpoint_does_not_mark_finished_build_as_interrupted_when_pid_is_gone(): void
+    {
+        app()->instance(DevelopmentRunBackgroundProcess::class, new class extends DevelopmentRunBackgroundProcess
+        {
+            public function isRunning(?int $pid): bool
+            {
+                return false;
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'status' => 'build_running',
+            'active_stage' => 'build',
+            'started_at' => now(),
+        ]);
+        $run->artifacts()->create(['type' => 'build_background_run', 'title' => 'Build en ejecución', 'body' => 'Corriendo.', 'metadata' => ['pid' => 9997, 'status' => 'running']]);
+        $run->artifacts()->create(['type' => 'opencode_execution', 'title' => 'Ejecución OpenCode completada', 'body' => 'Build listo.', 'metadata' => ['status' => 'completed']]);
+
+        $this->getJson(route('development-runs.status', $run))
+            ->assertOk()
+            ->assertJsonPath('status', 'build_executed')
+            ->assertJsonPath('active_stage', 'qa')
+            ->assertJsonPath('running', false);
+
+        $artifact = $run->artifacts()->where('type', 'build_background_run')->firstOrFail();
+        $this->assertSame('Build completado', $artifact->title);
+        $this->assertSame('completed', $artifact->metadata['status']);
+        $this->assertArrayHasKey('finished_at', $artifact->metadata);
+    }
+
+    public function test_status_endpoint_does_not_mark_finished_qa_as_interrupted_when_pid_is_gone(): void
+    {
+        app()->instance(DevelopmentRunBackgroundProcess::class, new class extends DevelopmentRunBackgroundProcess
+        {
+            public function isRunning(?int $pid): bool
+            {
+                return false;
+            }
+        });
+        $run = DevelopmentRun::create([
+            'title' => 'Resolver acceso',
+            'initial_context' => 'Validar el permiso pendiente.',
+            'status' => 'qa_running',
+            'active_stage' => 'qa',
+            'started_at' => now(),
+        ]);
+        $run->artifacts()->create(['type' => 'opencode_execution', 'title' => 'Ejecución OpenCode completada', 'body' => 'Build listo.']);
+        $run->artifacts()->create(['type' => 'qa_background_run', 'title' => 'QA en ejecución', 'body' => 'Corriendo.', 'metadata' => ['pid' => 9996, 'status' => 'running']]);
+        $run->artifacts()->create(['type' => 'qa_report', 'title' => 'QA aprobado', 'body' => '142 passed.', 'metadata' => ['status' => 'passed']]);
+
+        $this->getJson(route('development-runs.status', $run))
+            ->assertOk()
+            ->assertJsonPath('status', 'qa_passed')
+            ->assertJsonPath('active_stage', 'review')
+            ->assertJsonPath('running', false);
+
+        $artifact = $run->artifacts()->where('type', 'qa_background_run')->firstOrFail();
+        $this->assertSame('QA completado', $artifact->title);
+        $this->assertSame('completed', $artifact->metadata['status']);
+        $this->assertArrayHasKey('finished_at', $artifact->metadata);
+    }
+
     public function test_show_offers_to_start_the_technical_brief_and_return_home_before_it_is_generated(): void
     {
         $run = DevelopmentRun::create(['title' => 'Resolver acceso', 'initial_context' => 'Validar el permiso pendiente.', 'started_at' => now()]);
@@ -207,7 +270,7 @@ class DevelopmentRunTest extends TestCase
     {
         $run = DevelopmentRun::create([
             'title' => 'Resolver acceso',
-            'initial_context' => "Validar el permiso pendiente. No tocar la configuración de producción.",
+            'initial_context' => 'Validar el permiso pendiente. No tocar la configuración de producción.',
             'repository' => 'personal-dev-orchestrator',
             'project' => 'Command Flow',
             'priority' => 'alta',

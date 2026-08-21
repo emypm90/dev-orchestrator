@@ -7,8 +7,8 @@ use App\Services\DevelopmentRuns\DevelopmentRunBackgroundProcess;
 use App\Services\DevelopmentRuns\DevelopmentRunStaleExecutionDetector;
 use App\Services\DevelopmentRuns\OpenCodeExecutionRunner;
 use App\Services\DevelopmentRuns\StageAgentContract;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -112,6 +112,8 @@ class DevelopmentRunController extends Controller
 
     public function storeTechnicalBrief(DevelopmentRun $developmentRun, OpenCodeExecutionRunner $runner, StageAgentContract $contract): RedirectResponse
     {
+        $this->allowLongRunningAgentRequest();
+
         $brief = $developmentRun->artifacts()->where('type', 'technical_brief')->exists()
             ? null
             : $this->technicalBriefResultFor($developmentRun, $runner);
@@ -157,6 +159,8 @@ class DevelopmentRunController extends Controller
 
     public function storeImplementationSlices(DevelopmentRun $developmentRun, OpenCodeExecutionRunner $runner, StageAgentContract $contract): RedirectResponse
     {
+        $this->allowLongRunningAgentRequest();
+
         $technicalBrief = $developmentRun->artifacts()->where('type', 'technical_brief')->first();
 
         if (! $technicalBrief) {
@@ -394,10 +398,10 @@ class DevelopmentRunController extends Controller
         return "Development Run\n"
             ."Título: {$run->title}\n"
             ."Contexto inicial:\n{$run->initial_context}\n\n"
-            ."Repositorio declarado: ".($run->repository ?: 'No definido')."\n"
-            ."Proyecto: ".($run->project ?: 'No definido')."\n"
-            ."Prioridad: ".($run->priority ?: 'No definida')."\n\n"
-            ."Generá un brief técnico accionable para avanzar a Slices. No modifiques archivos. No ejecutes Git. No ejecutes tests.";
+            .'Repositorio declarado: '.($run->repository ?: 'No definido')."\n"
+            .'Proyecto: '.($run->project ?: 'No definido')."\n"
+            .'Prioridad: '.($run->priority ?: 'No definida')."\n\n"
+            .'Generá un brief técnico accionable para avanzar a Slices. No modifiques archivos. No ejecutes Git. No ejecutes tests.';
     }
 
     /**
@@ -456,10 +460,10 @@ class DevelopmentRunController extends Controller
     {
         return "Development Run\n"
             ."Título: {$run->title}\n"
-            ."Proyecto: ".($run->project ?: 'No definido')."\n"
-            ."Prioridad: ".($run->priority ?: 'No definida')."\n\n"
+            .'Proyecto: '.($run->project ?: 'No definido')."\n"
+            .'Prioridad: '.($run->priority ?: 'No definida')."\n\n"
             ."Brief técnico de entrada:\n{$technicalBrief->body}\n\n"
-            ."Generá slices de implementación chicos, ordenados y revisables para avanzar a Build. No modifiques archivos. No ejecutes Git. No ejecutes tests.";
+            .'Generá slices de implementación chicos, ordenados y revisables para avanzar a Build. No modifiques archivos. No ejecutes Git. No ejecutes tests.';
     }
 
     private function technicalBriefFor(DevelopmentRun $run): string
@@ -485,9 +489,9 @@ class DevelopmentRunController extends Controller
             ."- La solución queda cubierta por pruebas o evidencia de QA.\n"
             ."- No se ejecutan acciones de Git sin aprobación humana.\n\n"
             ."Datos del run\n"
-            ."- Repositorio: ".($run->repository ?: 'No definido')."\n"
-            ."- Proyecto: ".($run->project ?: 'No definido')."\n"
-            ."- Prioridad: ".($run->priority ?: 'No definida');
+            .'- Repositorio: '.($run->repository ?: 'No definido')."\n"
+            .'- Proyecto: '.($run->project ?: 'No definido')."\n"
+            .'- Prioridad: '.($run->priority ?: 'No definida');
     }
 
     private function implementationSlicesFor(DevelopmentRun $run, string $technicalBriefTitle): string
@@ -502,7 +506,7 @@ class DevelopmentRunController extends Controller
             ."Criterios: tests o evidencia cubren el caso principal.\n\n"
             ."Slice 3 — QA y refinamiento\n"
             ."Objetivo: validar en entorno local y ajustar bordes detectados.\n"
-            ."Criterios: pruebas pasan, evidencia lista para revisión humana.";
+            .'Criterios: pruebas pasan, evidencia lista para revisión humana.';
     }
 
     private function buildPlanFor(): string
@@ -518,11 +522,11 @@ class DevelopmentRunController extends Controller
             ."- No modificar código en esta etapa.\n"
             ."- No correr Playwright ni acciones de Git.\n\n"
             ."Próximo paso\n"
-            ."- Ejecutar el slice seleccionado con OpenCode en una etapa Build controlada.";
+            .'- Ejecutar el slice seleccionado con OpenCode en una etapa Build controlada.';
     }
 
     /**
-     * @param array{orchestrator_agent: string, stage_agent: string, model: string, variant: string} $profile
+     * @param  array{orchestrator_agent: string, stage_agent: string, model: string, variant: string}  $profile
      */
     private function executionPromptFor(DevelopmentRun $run, string $buildPlanTitle, array $profile): string
     {
@@ -545,8 +549,8 @@ class DevelopmentRunController extends Controller
             ."Prompt preparado para OpenCode\n"
             ."Run: {$run->title}\n"
             ."Punto de partida: {$buildPlanTitle}\n"
-            ."Repositorio objetivo: ".($run->repository ?: 'No definido')."\n"
-            ."Proyecto: ".($run->project ?: 'No definido')."\n\n"
+            .'Repositorio objetivo: '.($run->repository ?: 'No definido')."\n"
+            .'Proyecto: '.($run->project ?: 'No definido')."\n\n"
             ."Tarea\n"
             ."- Entregable concreto de este slice: producir un reporte read-only de preparación. Si no hay cambios de código que hacer, eso cuenta como completed.\n"
             ."- Ejecutar Slice 1 — Preparar cambio mínimo en modo read-only.\n"
@@ -570,7 +574,7 @@ class DevelopmentRunController extends Controller
             ."Verificación sugerida:\n"
             ."Riesgos o dudas:\n\n"
             ."Estado actual\n"
-            ."- Este prompt está preparado, pero todavía no se ejecutó OpenCode.";
+            .'- Este prompt está preparado, pero todavía no se ejecutó OpenCode.';
     }
 
     public function runQa(DevelopmentRun $developmentRun, DevelopmentRunBackgroundProcess $background): RedirectResponse
@@ -648,6 +652,8 @@ class DevelopmentRunController extends Controller
 
     public function storeReview(DevelopmentRun $developmentRun, OpenCodeExecutionRunner $runner, StageAgentContract $contract): RedirectResponse
     {
+        $this->allowLongRunningAgentRequest();
+
         $qaReport = $developmentRun->artifacts()->where('type', 'qa_report')->first();
 
         if (! $qaReport) {
@@ -747,14 +753,21 @@ class DevelopmentRunController extends Controller
 
         return "Development Run\n"
             ."Título: {$run->title}\n"
-            ."Repositorio: ".($run->repository ?: 'No definido')."\n"
-            ."Proyecto: ".($run->project ?: 'No definido')."\n\n"
+            .'Repositorio: '.($run->repository ?: 'No definido')."\n"
+            .'Proyecto: '.($run->project ?: 'No definido')."\n\n"
             ."Artifacts disponibles:\n{$artifacts}\n\n"
-            ."Generá el reporte final de cierre local. No modifiques archivos. No ejecutes Git. No ejecutes tests.";
+            .'Generá el reporte final de cierre local. No modifiques archivos. No ejecutes Git. No ejecutes tests.';
+    }
+
+    private function allowLongRunningAgentRequest(): void
+    {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
     }
 
     /**
-     * @param array<string, mixed> $startMetadata
+     * @param  array<string, mixed>  $startMetadata
      */
     private function recordBackgroundStart(DevelopmentRun $run, string $artifactType, ?int $pid, array $startMetadata): void
     {
@@ -782,8 +795,8 @@ class DevelopmentRunController extends Controller
         return "Cierre del Development Run\n"
             ."- Run: {$run->title}\n"
             ."- Estado final: completed\n"
-            ."- Repositorio: ".($run->repository ?: 'No definido')."\n"
-            ."- Proyecto: ".($run->project ?: 'No definido')."\n\n"
+            .'- Repositorio: '.($run->repository ?: 'No definido')."\n"
+            .'- Proyecto: '.($run->project ?: 'No definido')."\n\n"
             ."Artifacts generados\n"
             .($artifactSummary ?: '- No hay artifacts previos.')."\n\n"
             ."Evidencia QA\n"
@@ -791,6 +804,6 @@ class DevelopmentRunController extends Controller
             ."Handoff humano\n"
             ."- Revisar artifacts antes de integrar cambios.\n"
             ."- No se realizaron commits, stage, push ni cambios de remotos desde Command Flow.\n"
-            ."- Si el resultado requiere integración, hacerlo manualmente con revisión humana.";
+            .'- Si el resultado requiere integración, hacerlo manualmente con revisión humana.';
     }
 }

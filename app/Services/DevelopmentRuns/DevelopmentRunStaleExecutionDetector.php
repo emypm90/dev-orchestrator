@@ -16,6 +16,12 @@ class DevelopmentRunStaleExecutionDetector
         $stage = $run->status === 'build_running' ? 'build' : 'qa';
         $artifactType = $stage === 'build' ? 'build_background_run' : 'qa_background_run';
         $artifact = $run->artifacts()->where('type', $artifactType)->first();
+
+        $finalArtifact = $run->artifacts()->where('type', $stage === 'build' ? 'opencode_execution' : 'qa_report')->first();
+        if ($finalArtifact) {
+            return $this->recoverFromFinalArtifact($run, $artifact, $stage, $finalArtifact);
+        }
+
         $pid = (int) data_get($artifact?->metadata, 'pid', 0);
 
         if (app(DevelopmentRunBackgroundProcess::class)->isRunning($pid)) {
@@ -42,5 +48,56 @@ class DevelopmentRunStaleExecutionDetector
         });
 
         return $run->fresh();
+    }
+
+    private function recoverFromFinalArtifact(DevelopmentRun $run, $artifact, string $stage, $finalArtifact): DevelopmentRun
+    {
+        DB::transaction(function () use ($run, $artifact, $stage, $finalArtifact) {
+            $finalStatus = (string) data_get($finalArtifact->metadata, 'status', $stage === 'build' ? 'completed' : 'passed');
+            $normalizedBackgroundStatus = in_array($finalStatus, ['completed', 'passed'], true) ? 'completed' : $finalStatus;
+            $backgroundTitleStatus = match ($normalizedBackgroundStatus) {
+                'completed' => 'completado',
+                'failed' => 'fallido',
+                'blocked' => 'bloqueado',
+                default => $normalizedBackgroundStatus,
+            };
+
+            if ($artifact) {
+                $artifact->update([
+                    'title' => ($stage === 'build' ? 'Build' : 'QA')." {$backgroundTitleStatus}",
+                    'metadata' => [...($artifact->metadata ?? []), 'status' => $normalizedBackgroundStatus, 'finished_at' => data_get($artifact->metadata, 'finished_at') ?: now()->toISOString()],
+                ]);
+            }
+
+            [$status, $activeStage] = $stage === 'build'
+                ? $this->buildStateFromFinalStatus($finalStatus)
+                : $this->qaStateFromFinalStatus($finalStatus);
+
+            $run->update(['active_stage' => $activeStage, 'status' => $status]);
+        });
+
+        return $run->fresh();
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function buildStateFromFinalStatus(string $status): array
+    {
+        return $status === 'completed'
+            ? ['build_executed', 'qa']
+            : [$status === 'blocked' ? 'execution_blocked' : 'execution_failed', 'build'];
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function qaStateFromFinalStatus(string $status): array
+    {
+        return match ($status) {
+            'passed' => ['qa_passed', 'review'],
+            'failed' => ['qa_failed', 'qa'],
+            default => ['qa_blocked', 'qa'],
+        };
     }
 }

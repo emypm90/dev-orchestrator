@@ -177,27 +177,32 @@ class OpenCodeExecutionRunner
 
     private function buildCliPrompt(string $prompt): string
     {
-        return "EJECUCIÓN NO INTERACTIVA. BUILD WORKER DIRECTO, NO SDD, NO OPENSPEC, NO ENGRAM, NO BUSCAR tasks.md/spec/proposal/design. Tarea concreta: producir el reporte read-only de preparación del slice con el contexto incluido en este mensaje; si no hay cambios de código, responder completed con archivos modificados: ninguno. No pidas comandos, contexto ni confirmación. Respuesta obligatoria: Estado, Resumen, Archivos modificados, Verificación sugerida, Riesgos o dudas.\n\n{$prompt}";
+        return 'EJECUCIÓN NO INTERACTIVA. BUILD WORKER DIRECTO, NO SDD, NO OPENSPEC, NO ENGRAM, NO BUSCAR tasks.md/spec/proposal/design. Tarea concreta: ejecutar el slice usando LOS DATOS DEL RUN incluidos en este mismo mensaje; si no hay cambios de código, responder completed con archivos modificados: ninguno. No pidas comandos, contexto ni confirmación. Respuesta obligatoria: Estado, Resumen, Archivos modificados, Verificación sugerida, Riesgos o dudas. DATOS DEL RUN: '.$this->compactPrompt($prompt);
     }
 
     private function planningCliPrompt(string $prompt): string
     {
-        return "EJECUCIÓN NO INTERACTIVA. PLAN AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: convertir el contexto del Development Run en un brief técnico accionable. No pidas comandos, contexto ni confirmación. Respondé solo con el contenido del brief, en español, usando secciones claras: Objetivo, Contexto relevante, Restricciones detectadas, Plan inicial, Criterios de aceptación iniciales, Riesgos o dudas.\n\n{$prompt}";
+        return 'EJECUCIÓN NO INTERACTIVA. PLAN AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: convertir LOS DATOS DEL DEVELOPMENT RUN incluidos en este mismo mensaje en un brief técnico accionable. Usá explícitamente título, contexto inicial, repositorio, proyecto y prioridad cuando estén presentes. No afirmes que falta contexto si esos datos están presentes. No pidas comandos, contexto ni confirmación. Respondé solo con el contenido del brief, en español, usando secciones claras: Objetivo, Contexto relevante, Restricciones detectadas, Plan inicial, Criterios de aceptación iniciales, Riesgos o dudas. DATOS DEL RUN: '.$this->compactPrompt($prompt);
     }
 
     private function slicingCliPrompt(string $prompt): string
     {
-        return "EJECUCIÓN NO INTERACTIVA. SLICES AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: convertir el brief técnico del Development Run en slices chicos, ordenados, verificables y revisables. No pidas comandos, contexto ni confirmación. Respondé solo con el contenido de los slices, en español, usando secciones claras por slice e incluyendo objetivo, alcance, criterios y riesgo de revisión.\n\n{$prompt}";
+        return 'EJECUCIÓN NO INTERACTIVA. SLICES AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: convertir LOS DATOS DEL DEVELOPMENT RUN incluidos en este mismo mensaje en slices chicos, ordenados, verificables y revisables. Usá explícitamente el brief técnico incluido. No afirmes que falta contexto si hay brief técnico. No pidas comandos, contexto ni confirmación. Respondé solo con el contenido de los slices, en español, usando secciones claras por slice e incluyendo objetivo, alcance, criterios y riesgo de revisión. DATOS DEL RUN: '.$this->compactPrompt($prompt);
     }
 
     private function reviewCliPrompt(string $prompt): string
     {
-        return "EJECUCIÓN NO INTERACTIVA. REVIEW AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: sintetizar los artifacts del Development Run y generar un cierre local con evidencia, estado final y handoff humano. No pidas comandos, contexto ni confirmación. Respondé solo con el reporte de cierre, en español, usando secciones claras: Cierre del Development Run, Artifacts generados, Evidencia QA, Riesgos o dudas, Handoff humano.\n\n{$prompt}";
+        return 'EJECUCIÓN NO INTERACTIVA. REVIEW AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: sintetizar LOS ARTIFACTS DEL DEVELOPMENT RUN incluidos en este mismo mensaje y generar un cierre local con evidencia, estado final y handoff humano. Usá explícitamente los artifacts incluidos. No pidas comandos, contexto ni confirmación. Respondé solo con el reporte de cierre, en español, usando secciones claras: Cierre del Development Run, Artifacts generados, Evidencia QA, Riesgos o dudas, Handoff humano. ARTIFACTS DEL RUN: '.$this->compactPrompt($prompt);
     }
 
     private function qaCliPrompt(string $prompt): string
     {
-        return "EJECUCIÓN NO INTERACTIVA. QA AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: analizar la evidencia cruda del runner QA local y producir un reporte reproducible con diagnóstico, decisión y próximos pasos. No pidas comandos, contexto ni confirmación. No cambies el resultado objetivo del runner: si el runner falló, reportá fallido; si pasó, reportá aprobado. Respondé solo con el reporte QA, en español, usando secciones claras: Resultado QA, Comando, Evidencia, Diagnóstico, Riesgos o dudas, Decisión del orquestador.\n\n{$prompt}";
+        return 'EJECUCIÓN NO INTERACTIVA. QA AGENT DIRECTO. NO MODIFICAR ARCHIVOS, NO GIT, NO SDD, NO OPENSPEC, NO ENGRAM. Tarea concreta: analizar LA EVIDENCIA QA incluida en este mismo mensaje y producir un reporte reproducible con diagnóstico, decisión y próximos pasos. Usá explícitamente la evidencia incluida. No pidas comandos, contexto ni confirmación. No cambies el resultado objetivo del runner: si el runner falló, reportá fallido; si pasó, reportá aprobado. Respondé solo con el reporte QA, en español, usando secciones claras: Resultado QA, Comando, Evidencia, Diagnóstico, Riesgos o dudas, Decisión del orquestador. EVIDENCIA QA: '.$this->compactPrompt($prompt);
+    }
+
+    private function compactPrompt(string $prompt): string
+    {
+        return trim((string) preg_replace('/\s+/', ' ', $prompt));
     }
 
     private function model(): string
