@@ -17,14 +17,36 @@ class DevelopmentRunBackgroundProcess
         return $this->start('development-run:execute-build', $run);
     }
 
+    public function startPlan(DevelopmentRun $run): ?int
+    {
+        return $this->start('development-run:execute-plan', $run);
+    }
+
+    public function startSlices(DevelopmentRun $run): ?int
+    {
+        return $this->start('development-run:execute-slices', $run);
+    }
+
     public function startQa(DevelopmentRun $run): ?int
     {
         return $this->start('development-run:execute-qa', $run);
     }
 
+    public function startReview(DevelopmentRun $run): ?int
+    {
+        return $this->start('development-run:execute-review', $run);
+    }
+
     public function cancel(DevelopmentRun $run): bool
     {
-        $artifactType = $run->status === 'build_running' ? 'build_background_run' : ($run->status === 'qa_running' ? 'qa_background_run' : null);
+        $artifactType = match ($run->status) {
+            'plan_running' => 'plan_background_run',
+            'slices_running' => 'slices_background_run',
+            'build_running' => 'build_background_run',
+            'qa_running' => 'qa_background_run',
+            'review_running' => 'review_background_run',
+            default => null,
+        };
         if ($artifactType === null) {
             return false;
         }

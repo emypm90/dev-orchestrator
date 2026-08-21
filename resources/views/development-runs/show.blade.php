@@ -63,11 +63,18 @@
             @php($hasOpenCodeExecution = $run->artifacts->contains('type', 'opencode_execution'))
             @php($hasQaReport = $run->artifacts->contains('type', 'qa_report'))
             @php($hasReviewReport = $run->artifacts->contains('type', 'review_report'))
-            @php($isRunning = in_array($run->status, ['build_running', 'qa_running'], true))
-            @php($isInterrupted = in_array($run->status, ['build_interrupted', 'qa_interrupted'], true))
+            @php($runningStatuses = ['plan_running', 'slices_running', 'build_running', 'qa_running', 'review_running'])
+            @php($interruptedStatuses = ['plan_interrupted', 'slices_interrupted', 'build_interrupted', 'qa_interrupted', 'review_interrupted'])
+            @php($stageLabels = ['plan' => 'Plan', 'slices' => 'Slices', 'build' => 'Build', 'qa' => 'QA', 'review' => 'Revisión'])
+            @php($isRunning = in_array($run->status, $runningStatuses, true))
+            @php($isInterrupted = in_array($run->status, $interruptedStatuses, true))
+            @php($executionStage = str($run->status)->before('_')->toString())
+            @php($executionStageLabel = $stageLabels[$executionStage] ?? 'La etapa')
             @php($artifactStage = [
                 'context' => 'Contexto',
+                'plan_background_run' => 'Plan',
                 'technical_brief' => 'Plan',
+                'slices_background_run' => 'Slices',
                 'implementation_slices' => 'Slices',
                 'build_plan' => 'Build',
                 'execution_prompt' => 'Build',
@@ -75,6 +82,7 @@
                 'opencode_execution' => 'Build',
                 'qa_background_run' => 'QA',
                 'qa_report' => 'QA',
+                'review_background_run' => 'Revisión',
                 'review_report' => 'Revisión',
                 'stage_contract' => 'Contratos técnicos',
             ])
@@ -95,9 +103,9 @@
                     @error('qa_report')<p class="details">{{ $message }}</p>@enderror
                     @error('review_report')<p class="details">{{ $message }}</p>@enderror
                     @if ($isRunning)
-                        <p class="running-note">{{ $run->status === 'build_running' ? 'Build está corriendo en background. Podés dejar esta pantalla abierta; Command Flow va a actualizar cuando cambie el estado.' : 'QA está corriendo en background. Podés dejar esta pantalla abierta; Command Flow va a actualizar cuando cambie el estado.' }}</p>
+                        <p class="running-note">{{ $executionStageLabel }} está corriendo en background. Podés dejar esta pantalla abierta; Command Flow va a actualizar cuando cambie el estado.</p>
                     @elseif ($isInterrupted)
-                        <p class="running-note">{{ $run->status === 'build_interrupted' ? 'Build quedó interrumpido: el proceso background ya no está activo. Podés reintentar la ejecución.' : 'QA quedó interrumpido: el proceso background ya no está activo. Podés reintentar la verificación.' }}</p>
+                        <p class="running-note">{{ $executionStageLabel }} quedó interrumpido: el proceso background ya no está activo. Podés reintentar la etapa.</p>
                     @endif
                     <p class="stage-note">Artifacts organizados por etapa. Abrí solo lo que necesitás revisar; los contratos técnicos quedan separados para no ensuciar la lectura diaria.</p>
                     <section class="artifact-board" aria-label="Artifacts del Development Run">
@@ -111,7 +119,7 @@
                                         <details class="artifact" {{ in_array($artifact->type, ['context', 'technical_brief', 'implementation_slices', 'build_plan', 'opencode_execution', 'qa_report', 'review_report'], true) ? 'open' : '' }}>
                                             <summary>{{ $artifact->title }}</summary>
                                             <p>{{ $artifact->body }}</p>
-                                            @if (in_array($artifact->type, ['build_background_run', 'qa_background_run'], true))
+                                            @if (in_array($artifact->type, ['plan_background_run', 'slices_background_run', 'build_background_run', 'qa_background_run', 'review_background_run'], true))
                                                 @php($metadata = $artifact->metadata ?? [])
                                                 <div class="artifact-meta">
                                                     @if (data_get($metadata, 'pid'))<span>PID: {{ data_get($metadata, 'pid') }}</span>@endif
@@ -154,11 +162,15 @@
                             <form method="post" action="{{ route('development-runs.slices.return', $run) }}">@csrf<button class="action" type="submit">Volver</button></form>
                         @endif
 
-                        @if ($run->active_stage === 'contexto')
-                            <form method="post" action="{{ route('development-runs.technical-brief.store', $run) }}">@csrf<button class="action" type="submit">Generar brief</button></form>
-                        @elseif ($run->active_stage === 'plan')
+                        @if ($run->active_stage === 'contexto' && $hasTechnicalBrief && ! $isRunning)
+                            <form method="post" action="{{ route('development-runs.technical-brief.store', $run) }}">@csrf<button class="action" type="submit">Volver a Plan</button></form>
+                        @elseif (in_array($run->active_stage, ['contexto', 'plan'], true) && ! $hasTechnicalBrief && ! $isRunning)
+                            <form method="post" action="{{ route('development-runs.technical-brief.store', $run) }}">@csrf<button class="action" type="submit">{{ $run->status === 'plan_interrupted' ? 'Reintentar Plan' : 'Generar brief' }}</button></form>
+                        @elseif ($run->active_stage === 'plan' && $hasTechnicalBrief && ! $isRunning)
                             <form method="post" action="{{ route('development-runs.implementation-slices.store', $run) }}">@csrf<button class="action" type="submit">Definir slices</button></form>
-                        @elseif ($run->active_stage === 'slices')
+                        @elseif ($run->active_stage === 'slices' && ! $hasImplementationSlices && ! $isRunning)
+                            <form method="post" action="{{ route('development-runs.implementation-slices.store', $run) }}">@csrf<button class="action" type="submit">{{ $run->status === 'slices_interrupted' ? 'Reintentar Slices' : 'Definir slices' }}</button></form>
+                        @elseif ($run->active_stage === 'slices' && $hasImplementationSlices)
                             <form method="post" action="{{ route('development-runs.build-plan.store', $run) }}">@csrf<button class="action" type="submit">Preparar Build</button></form>
                         @elseif ($run->active_stage === 'build' && ! $hasExecutionPrompt)
                             <form method="post" action="{{ route('development-runs.execution-prompt.store', $run) }}">@csrf<button class="action" type="submit">Preparar prompt</button></form>
@@ -166,8 +178,8 @@
                             <form method="post" action="{{ route('development-runs.opencode-execution.store', $run) }}">@csrf<button class="action" type="submit">{{ $run->status === 'build_interrupted' ? 'Reintentar Build' : 'Ejecutar Build' }}</button></form>
                         @elseif ($run->active_stage === 'qa' && ! $isRunning && (! $hasQaReport || in_array($run->status, ['qa_failed', 'qa_blocked', 'qa_interrupted'], true)))
                             <form method="post" action="{{ route('development-runs.qa.store', $run) }}">@csrf<button class="action" type="submit">{{ in_array($run->status, ['qa_failed', 'qa_blocked', 'qa_interrupted'], true) ? 'Reintentar QA' : 'Ejecutar QA' }}</button></form>
-                        @elseif ($run->active_stage === 'review' && ! $hasReviewReport)
-                            <form method="post" action="{{ route('development-runs.review.store', $run) }}">@csrf<button class="action" type="submit">Cerrar run</button></form>
+                        @elseif ($run->active_stage === 'review' && ! $hasReviewReport && ! $isRunning)
+                            <form method="post" action="{{ route('development-runs.review.store', $run) }}">@csrf<button class="action" type="submit">{{ $run->status === 'review_interrupted' ? 'Reintentar Revisión' : 'Cerrar run' }}</button></form>
                         @endif
 
                         @if ($isRunning)

@@ -11,7 +11,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Throwable;
 
 class DevelopmentRunController extends Controller
 {
@@ -72,7 +71,7 @@ class DevelopmentRunController extends Controller
             'status' => $developmentRun->status,
             'active_stage' => $developmentRun->active_stage,
             'completed' => $developmentRun->completed_at !== null,
-            'running' => in_array($developmentRun->status, ['build_running', 'qa_running'], true),
+            'running' => in_array($developmentRun->status, ['plan_running', 'slices_running', 'build_running', 'qa_running', 'review_running'], true),
             'artifacts' => $artifacts,
             'updated_at' => optional($developmentRun->updated_at)->toISOString(),
         ]);
@@ -101,7 +100,7 @@ class DevelopmentRunController extends Controller
 
             if ($buildPlan && $executionPrompt && ! $alreadyExecuted) {
                 $executionPrompt->update([
-                    'body' => $this->executionPromptFor($developmentRun->fresh(), $buildPlan->title, $runner->buildProfile()),
+                    'body' => $this->executionPromptFor($developmentRun->fresh(), $buildPlan, $runner->buildProfile()),
                     'metadata' => ['generator' => 'deterministic', 'version' => 3, 'refreshed_after_repository_update' => true],
                 ]);
             }
@@ -110,40 +109,21 @@ class DevelopmentRunController extends Controller
         return redirect()->route('development-runs.show', $developmentRun);
     }
 
-    public function storeTechnicalBrief(DevelopmentRun $developmentRun, OpenCodeExecutionRunner $runner, StageAgentContract $contract): RedirectResponse
+    public function storeTechnicalBrief(DevelopmentRun $developmentRun, DevelopmentRunBackgroundProcess $background): RedirectResponse
     {
-        $this->allowLongRunningAgentRequest();
-
-        $brief = $developmentRun->artifacts()->where('type', 'technical_brief')->exists()
-            ? null
-            : $this->technicalBriefResultFor($developmentRun, $runner);
-
-        DB::transaction(function () use ($developmentRun, $runner, $contract, $brief) {
-            $agents = $runner->stageAgents();
-
-            $developmentRun->artifacts()->firstOrCreate(
-                ['type' => 'stage_contract', 'title' => 'Contrato agente Plan'],
-                [
-                    'body' => $contract->render('Plan', $agents['planning'], 'Convertir contexto inicial en brief técnico accionable.', ['Contexto inicial'], ['Ejecutar OpenCode con agente Plan si está disponible', 'Detectar restricciones', 'Proponer criterios de aceptación', 'Usar fallback determinístico si el agente no responde'], ['technical_brief', 'status: completed | fallback | failed', 'risks']),
-                    'metadata' => ['stage' => 'plan', 'agent' => $agents['planning']],
-                    'created_by' => 'system',
-                ],
-            );
-
-            $developmentRun->artifacts()->firstOrCreate(
-                ['type' => 'technical_brief'],
-                [
-                    'title' => 'Brief técnico inicial',
-                    'body' => $brief['body'] ?? $this->technicalBriefFor($developmentRun),
-                    'metadata' => $brief['metadata'] ?? ['generator' => 'deterministic', 'version' => 1, 'fallback' => true],
-                    'created_by' => $brief['created_by'] ?? 'system',
-                ],
-            );
-
+        if ($developmentRun->artifacts()->where('type', 'technical_brief')->exists()) {
             if ($developmentRun->active_stage === 'contexto') {
                 $developmentRun->update(['active_stage' => 'plan', 'status' => 'planning']);
             }
-        });
+
+            return redirect()->route('development-runs.show', $developmentRun);
+        }
+
+        if ($developmentRun->status === 'plan_running') {
+            return redirect()->route('development-runs.show', $developmentRun);
+        }
+
+        $this->startAgentStage($developmentRun, $background, 'plan', 'Plan en ejecución', "Plan agent iniciado en background.\n\nLa página se actualiza sola mientras OpenCode genera el brief técnico.");
 
         return redirect()->route('development-runs.show', $developmentRun);
     }
@@ -157,10 +137,8 @@ class DevelopmentRunController extends Controller
         return redirect()->route('development-runs.show', $developmentRun);
     }
 
-    public function storeImplementationSlices(DevelopmentRun $developmentRun, OpenCodeExecutionRunner $runner, StageAgentContract $contract): RedirectResponse
+    public function storeImplementationSlices(DevelopmentRun $developmentRun, DevelopmentRunBackgroundProcess $background): RedirectResponse
     {
-        $this->allowLongRunningAgentRequest();
-
         $technicalBrief = $developmentRun->artifacts()->where('type', 'technical_brief')->first();
 
         if (! $technicalBrief) {
@@ -169,36 +147,19 @@ class DevelopmentRunController extends Controller
                 ->withErrors(['implementation_slices' => 'Primero generá el brief técnico.']);
         }
 
-        $slices = $developmentRun->artifacts()->where('type', 'implementation_slices')->exists()
-            ? null
-            : $this->implementationSlicesResultFor($developmentRun, $technicalBrief, $runner);
-
-        DB::transaction(function () use ($developmentRun, $technicalBrief, $runner, $contract, $slices) {
-            $agents = $runner->stageAgents();
-
-            $developmentRun->artifacts()->firstOrCreate(
-                ['type' => 'stage_contract', 'title' => 'Contrato agente Slices'],
-                [
-                    'body' => $contract->render('Slices', $agents['slicing'], 'Dividir el brief en slices chicos, verificables y revisables.', ['Brief técnico inicial'], ['Ejecutar OpenCode con agente Slices si está disponible', 'Leer brief', 'Definir slices ordenados', 'Mantener cada slice por debajo de carga saludable de revisión', 'Usar fallback determinístico si el agente no responde'], ['implementation_slices', 'review workload forecast', 'next recommended slice', 'status: completed | fallback | failed']),
-                    'metadata' => ['stage' => 'slices', 'agent' => $agents['slicing']],
-                    'created_by' => 'system',
-                ],
-            );
-
-            $developmentRun->artifacts()->firstOrCreate(
-                ['type' => 'implementation_slices'],
-                [
-                    'title' => 'Slices de implementación',
-                    'body' => $slices['body'] ?? $this->implementationSlicesFor($developmentRun, $technicalBrief->title),
-                    'metadata' => $slices['metadata'] ?? ['generator' => 'deterministic', 'version' => 1, 'fallback' => true],
-                    'created_by' => $slices['created_by'] ?? 'system',
-                ],
-            );
-
+        if ($developmentRun->artifacts()->where('type', 'implementation_slices')->exists()) {
             if ($developmentRun->active_stage === 'plan') {
                 $developmentRun->update(['active_stage' => 'slices', 'status' => 'slicing']);
             }
-        });
+
+            return redirect()->route('development-runs.show', $developmentRun);
+        }
+
+        if ($developmentRun->status === 'slices_running') {
+            return redirect()->route('development-runs.show', $developmentRun);
+        }
+
+        $this->startAgentStage($developmentRun, $background, 'slices', 'Slices en ejecución', "Slices agent iniciado en background.\n\nLa página se actualiza sola mientras OpenCode define los slices.");
 
         return redirect()->route('development-runs.show', $developmentRun);
     }
@@ -222,7 +183,7 @@ class DevelopmentRunController extends Controller
                 ->withErrors(['build_plan' => 'Primero definí los slices de implementación.']);
         }
 
-        DB::transaction(function () use ($developmentRun, $runner, $contract) {
+        DB::transaction(function () use ($developmentRun, $implementationSlices, $runner, $contract) {
             $agents = $runner->stageAgents();
 
             $developmentRun->artifacts()->firstOrCreate(
@@ -238,8 +199,8 @@ class DevelopmentRunController extends Controller
                 ['type' => 'build_plan'],
                 [
                     'title' => 'Plan de build inicial',
-                    'body' => $this->buildPlanFor(),
-                    'metadata' => ['generator' => 'deterministic', 'version' => 1],
+                    'body' => $this->buildPlanFor($developmentRun, $implementationSlices->body),
+                    'metadata' => ['generator' => 'deterministic', 'version' => 2, 'source_implementation_slices_id' => $implementationSlices->id],
                     'created_by' => 'system',
                 ],
             );
@@ -276,7 +237,7 @@ class DevelopmentRunController extends Controller
                 ['type' => 'execution_prompt'],
                 [
                     'title' => 'Prompt de ejecución OpenCode',
-                    'body' => $this->executionPromptFor($developmentRun, $buildPlan->title, $runner->buildProfile()),
+                    'body' => $this->executionPromptFor($developmentRun, $buildPlan, $runner->buildProfile()),
                     'metadata' => ['generator' => 'deterministic', 'version' => 3, 'stage_agent' => $runner->buildProfile()['stage_agent']],
                     'created_by' => 'system',
                 ],
@@ -335,202 +296,45 @@ class DevelopmentRunController extends Controller
         return redirect()->route('development-runs.show', $developmentRun);
     }
 
-    /**
-     * @return array{body: string, metadata: array<string, mixed>, created_by: string}
-     */
-    private function technicalBriefResultFor(DevelopmentRun $run, OpenCodeExecutionRunner $runner): array
+    private function buildPlanFor(DevelopmentRun $run, string $implementationSlices): string
     {
-        $profile = $runner->planningProfile();
-        $fallback = fn (string $reason, ?int $exitCode = null, string $output = ''): array => [
-            'body' => $this->technicalBriefFor($run),
-            'metadata' => [
-                'generator' => 'deterministic',
-                'version' => 2,
-                'fallback' => true,
-                'fallback_reason' => $reason,
-                'exit_code' => $exitCode,
-                'opencode_output' => $output !== '' ? substr($output, 0, 2000) : null,
-                ...$profile,
-            ],
-            'created_by' => 'system',
-        ];
+        $selectedSlice = $this->selectBuildSlice($implementationSlices);
 
-        if (! $runner->isAvailable()) {
-            return $fallback('opencode_unavailable');
-        }
-
-        $workingDirectory = $this->planWorkingDirectory($run);
-
-        try {
-            $result = $runner->runPlanning($workingDirectory, $this->planningPromptFor($run));
-        } catch (Throwable $exception) {
-            return $fallback('opencode_exception', 1, $exception->getMessage());
-        }
-
-        if ($result['status'] !== 'completed' || trim($result['output']) === '') {
-            return $fallback('opencode_failed', $result['exit_code'], $result['output']);
-        }
-
-        return [
-            'body' => trim($result['output']),
-            'metadata' => [
-                'generator' => 'opencode',
-                'version' => 1,
-                'fallback' => false,
-                'status' => $result['status'],
-                'exit_code' => $result['exit_code'],
-                'working_directory' => $workingDirectory,
-                ...$profile,
-            ],
-            'created_by' => 'opencode',
-        ];
-    }
-
-    private function planWorkingDirectory(DevelopmentRun $run): string
-    {
-        $repository = trim((string) $run->repository);
-
-        return $repository !== '' && is_dir($repository) ? $repository : base_path();
-    }
-
-    private function planningPromptFor(DevelopmentRun $run): string
-    {
-        return "Development Run\n"
-            ."Título: {$run->title}\n"
-            ."Contexto inicial:\n{$run->initial_context}\n\n"
-            .'Repositorio declarado: '.($run->repository ?: 'No definido')."\n"
-            .'Proyecto: '.($run->project ?: 'No definido')."\n"
-            .'Prioridad: '.($run->priority ?: 'No definida')."\n\n"
-            .'Generá un brief técnico accionable para avanzar a Slices. No modifiques archivos. No ejecutes Git. No ejecutes tests.';
-    }
-
-    /**
-     * @return array{body: string, metadata: array<string, mixed>, created_by: string}
-     */
-    private function implementationSlicesResultFor(DevelopmentRun $run, $technicalBrief, OpenCodeExecutionRunner $runner): array
-    {
-        $profile = $runner->slicingProfile();
-        $fallback = fn (string $reason, ?int $exitCode = null, string $output = ''): array => [
-            'body' => $this->implementationSlicesFor($run, $technicalBrief->title),
-            'metadata' => [
-                'generator' => 'deterministic',
-                'version' => 2,
-                'fallback' => true,
-                'fallback_reason' => $reason,
-                'exit_code' => $exitCode,
-                'opencode_output' => $output !== '' ? substr($output, 0, 2000) : null,
-                ...$profile,
-            ],
-            'created_by' => 'system',
-        ];
-
-        if (! $runner->isAvailable()) {
-            return $fallback('opencode_unavailable');
-        }
-
-        $workingDirectory = $this->planWorkingDirectory($run);
-
-        try {
-            $result = $runner->runSlicing($workingDirectory, $this->slicingPromptFor($run, $technicalBrief));
-        } catch (Throwable $exception) {
-            return $fallback('opencode_exception', 1, $exception->getMessage());
-        }
-
-        if ($result['status'] !== 'completed' || trim($result['output']) === '') {
-            return $fallback('opencode_failed', $result['exit_code'], $result['output']);
-        }
-
-        return [
-            'body' => trim($result['output']),
-            'metadata' => [
-                'generator' => 'opencode',
-                'version' => 1,
-                'fallback' => false,
-                'status' => $result['status'],
-                'exit_code' => $result['exit_code'],
-                'working_directory' => $workingDirectory,
-                'source_technical_brief_id' => $technicalBrief->id,
-                ...$profile,
-            ],
-            'created_by' => 'opencode',
-        ];
-    }
-
-    private function slicingPromptFor(DevelopmentRun $run, $technicalBrief): string
-    {
-        return "Development Run\n"
-            ."Título: {$run->title}\n"
-            .'Proyecto: '.($run->project ?: 'No definido')."\n"
-            .'Prioridad: '.($run->priority ?: 'No definida')."\n\n"
-            ."Brief técnico de entrada:\n{$technicalBrief->body}\n\n"
-            .'Generá slices de implementación chicos, ordenados y revisables para avanzar a Build. No modifiques archivos. No ejecutes Git. No ejecutes tests.';
-    }
-
-    private function technicalBriefFor(DevelopmentRun $run): string
-    {
-        $context = trim(preg_replace('/\s+/', ' ', $run->initial_context));
-        $restrictionLines = collect(preg_split('/\R+|(?<=[.!?])\s+/', $run->initial_context))
-            ->filter(fn (string $line) => preg_match('/\b(no tocar|no|restricci[oó]n|debe|necesita)\b/i', $line))
-            ->map(fn (string $line) => '- '.trim($line, " \t\n\r\0\x0B.-"))
-            ->take(3)
-            ->implode("\n");
-
-        return "Objetivo\n- {$run->title}\n\n"
-            ."Contexto relevante\n- {$context}\n\n"
-            ."Restricciones detectadas\n"
-            .($restrictionLines ?: '- No se detectaron restricciones explícitas en el contexto.')
-            ."\n\nPlan inicial\n"
-            ."- Confirmar alcance.\n"
-            ."- Identificar archivos/áreas impactadas.\n"
-            ."- Definir slice implementable.\n"
-            ."- Preparar verificación manual/automática.\n\n"
-            ."Criterios de aceptación iniciales\n"
-            ."- El cambio resuelve el problema descripto.\n"
-            ."- La solución queda cubierta por pruebas o evidencia de QA.\n"
-            ."- No se ejecutan acciones de Git sin aprobación humana.\n\n"
-            ."Datos del run\n"
-            .'- Repositorio: '.($run->repository ?: 'No definido')."\n"
-            .'- Proyecto: '.($run->project ?: 'No definido')."\n"
-            .'- Prioridad: '.($run->priority ?: 'No definida');
-    }
-
-    private function implementationSlicesFor(DevelopmentRun $run, string $technicalBriefTitle): string
-    {
-        return "Run: {$run->title}\n"
-            ."Punto de partida: {$technicalBriefTitle}\n\n"
-            ."Slice 1 — Preparar cambio mínimo\n"
-            ."Objetivo: confirmar alcance y ubicar archivos/áreas impactadas.\n"
-            ."Criterios: brief revisado, riesgos visibles, sin cambios de Git automáticos.\n\n"
-            ."Slice 2 — Implementar comportamiento principal\n"
-            ."Objetivo: aplicar el cambio funcional más chico que resuelva el problema.\n"
-            ."Criterios: tests o evidencia cubren el caso principal.\n\n"
-            ."Slice 3 — QA y refinamiento\n"
-            ."Objetivo: validar en entorno local y ajustar bordes detectados.\n"
-            .'Criterios: pruebas pasan, evidencia lista para revisión humana.';
-    }
-
-    private function buildPlanFor(): string
-    {
         return "Slice seleccionado\n"
-            ."- Slice 1 — Preparar cambio mínimo\n\n"
+            ."{$selectedSlice}\n\n"
             ."Alcance permitido\n"
-            ."- Preparar el entorno de implementación para el primer slice.\n"
-            ."- Identificar archivos/áreas probables antes de ejecutar OpenCode.\n"
+            ."- Implementar el slice seleccionado con el cambio mínimo necesario.\n"
+            ."- Si el cambio pedido es documental, limitar la edición a documentación, preferentemente README.\n"
             ."- Mantener Git sin cambios automáticos hasta aprobación humana.\n\n"
             ."Fuera de alcance\n"
             ."- No ejecutar OpenCode todavía.\n"
-            ."- No modificar código en esta etapa.\n"
-            ."- No correr Playwright ni acciones de Git.\n\n"
+            ."- No commitear, stagear, pushear ni cambiar remotos.\n"
+            ."- No correr Playwright.\n\n"
+            ."Contexto del run\n"
+            ."- {$run->initial_context}\n\n"
             ."Próximo paso\n"
             .'- Ejecutar el slice seleccionado con OpenCode en una etapa Build controlada.';
+    }
+
+    private function selectBuildSlice(string $implementationSlices): string
+    {
+        $sections = preg_split('/(?=^#{0,3}\s*Slice\s+\d+\s*[:—-])/mi', trim($implementationSlices)) ?: [];
+        $sections = collect($sections)
+            ->map(fn (string $section) => trim($section))
+            ->filter();
+
+        $implementable = $sections->first(fn (string $section) => preg_match('/\b(agregar|implementar|editar|modificar|ajustar|aplicar|crear|actualizar)\b/i', $section)
+            && ! preg_match('/\b(solo lectura|validaci[oó]n manual|entrega para revisi[oó]n|preparar|ubicar)\b/i', mb_substr($section, 0, 160)));
+
+        return $implementable ?: ($sections->first() ?: trim($implementationSlices));
     }
 
     /**
      * @param  array{orchestrator_agent: string, stage_agent: string, model: string, variant: string}  $profile
      */
-    private function executionPromptFor(DevelopmentRun $run, string $buildPlanTitle, array $profile): string
+    private function executionPromptFor(DevelopmentRun $run, $buildPlan, array $profile): string
     {
-        return "EJECUCIÓN NO INTERACTIVA. Tarea completa: ejecutar Slice 1 — Preparar cambio mínimo en modo read-only para este Development Run; no pedir comandos, contexto ni confirmación.\n"
+        return "EJECUCIÓN NO INTERACTIVA. Tarea completa: ejecutar el slice seleccionado para este Development Run; no pedir comandos, contexto ni confirmación.\n"
             ."- BUILD WORKER DIRECTO: no uses modo SDD, OpenSpec, Engram ni busques tasks.md/spec/proposal/design.\n"
             ."- Este prompt contiene TODO el contexto disponible para esta ejecución.\n"
             ."- No saludes.\n"
@@ -548,25 +352,26 @@ class DevelopmentRunController extends Controller
             ."- Este prompt está dirigido al worker de Build, no al orquestador.\n\n"
             ."Prompt preparado para OpenCode\n"
             ."Run: {$run->title}\n"
-            ."Punto de partida: {$buildPlanTitle}\n"
+            ."Punto de partida: {$buildPlan->title}\n"
             .'Repositorio objetivo: '.($run->repository ?: 'No definido')."\n"
             .'Proyecto: '.($run->project ?: 'No definido')."\n\n"
+            ."Contexto inicial\n"
+            ."{$run->initial_context}\n\n"
+            ."Plan de build seleccionado\n"
+            ."{$buildPlan->body}\n\n"
             ."Tarea\n"
-            ."- Entregable concreto de este slice: producir un reporte read-only de preparación. Si no hay cambios de código que hacer, eso cuenta como completed.\n"
-            ."- Ejecutar Slice 1 — Preparar cambio mínimo en modo read-only.\n"
-            ."- Confirmar alcance usando el contexto del run.\n"
-            ."- Identificar archivos/áreas probablemente impactadas.\n"
-            ."- No modificar archivos en este slice preparatorio.\n"
+            ."- Entregable concreto de este slice: aplicar el cambio mínimo indicado por el plan de build.\n"
+            ."- Si el cambio es documental, editá la documentación mínima necesaria.\n"
+            ."- Si no corresponde modificar archivos, explicá por qué con Estado: blocked o completed según corresponda.\n"
             ."- Si el alcance todavía es insuficiente, reportar Estado: blocked con preguntas concretas.\n\n"
             ."Restricciones obligatorias\n"
             ."- No commitear, stagear, pushear ni cambiar remotos.\n"
-            ."- No modificar archivos.\n"
             ."- No ejecutar tests ni Playwright en este slice.\n"
             ."- No esperar más input del usuario durante esta ejecución.\n\n"
             ."Verificación esperada\n"
-            ."- Informar que no hubo archivos modificados, salvo que detectes una violación.\n"
+            ."- Informar archivos modificados.\n"
             ."- Proponer comandos de test/lint relevantes para un futuro slice de implementación.\n"
-            ."- Dejar evidencia suficiente para decidir si se puede implementar.\n\n"
+            ."- Dejar evidencia suficiente para QA.\n\n"
             ."Formato de respuesta obligatorio\n"
             ."Estado: completed | blocked | failed\n"
             ."Resumen:\n"
@@ -622,12 +427,12 @@ class DevelopmentRunController extends Controller
 
     public function cancelExecution(DevelopmentRun $developmentRun, DevelopmentRunBackgroundProcess $background): RedirectResponse
     {
-        if (! in_array($developmentRun->status, ['build_running', 'qa_running'], true)) {
+        if (! in_array($developmentRun->status, ['plan_running', 'slices_running', 'build_running', 'qa_running', 'review_running'], true)) {
             return redirect()->route('development-runs.show', $developmentRun);
         }
 
-        $stage = $developmentRun->status === 'build_running' ? 'build' : 'qa';
-        $artifactType = $stage === 'build' ? 'build_background_run' : 'qa_background_run';
+        $stage = str($developmentRun->status)->before('_running')->toString();
+        $artifactType = "{$stage}_background_run";
         $cancelled = $background->cancel($developmentRun);
 
         DB::transaction(function () use ($developmentRun, $artifactType, $stage, $cancelled) {
@@ -637,23 +442,21 @@ class DevelopmentRunController extends Controller
             $developmentRun->artifacts()->updateOrCreate(
                 ['type' => $artifactType],
                 [
-                    'title' => $stage === 'build' ? 'Build cancelado' : 'QA cancelado',
-                    'body' => ($stage === 'build' ? 'Build' : 'QA')." cancelado por el usuario.\n\nSe intentó detener el proceso background".($cancelled ? ' correctamente.' : ', pero no se pudo confirmar la señal.'),
+                    'title' => $this->stageLabel($stage).' cancelado',
+                    'body' => $this->stageLabel($stage)." cancelado por el usuario.\n\nSe intentó detener el proceso background".($cancelled ? ' correctamente.' : ', pero no se pudo confirmar la señal.'),
                     'metadata' => [...$metadata, 'status' => 'cancelled', 'cancelled_at' => now()->toISOString(), 'cancel_signal_sent' => $cancelled],
                     'created_by' => 'system',
                 ],
             );
 
-            $developmentRun->update(['active_stage' => $stage, 'status' => $stage === 'build' ? 'build_cancelled' : 'qa_cancelled']);
+            $developmentRun->update(['active_stage' => $stage, 'status' => "{$stage}_cancelled"]);
         });
 
         return redirect()->route('development-runs.show', $developmentRun);
     }
 
-    public function storeReview(DevelopmentRun $developmentRun, OpenCodeExecutionRunner $runner, StageAgentContract $contract): RedirectResponse
+    public function storeReview(DevelopmentRun $developmentRun, DevelopmentRunBackgroundProcess $background): RedirectResponse
     {
-        $this->allowLongRunningAgentRequest();
-
         $qaReport = $developmentRun->artifacts()->where('type', 'qa_report')->first();
 
         if (! $qaReport) {
@@ -662,108 +465,62 @@ class DevelopmentRunController extends Controller
                 ->withErrors(['review_report' => 'Primero ejecutá QA.']);
         }
 
-        $review = $developmentRun->artifacts()->where('type', 'review_report')->exists()
-            ? null
-            : $this->reviewReportResultFor($developmentRun->fresh(['artifacts']), $qaReport, $runner);
+        if ($developmentRun->artifacts()->where('type', 'review_report')->exists()) {
+            if ($developmentRun->completed_at === null) {
+                $developmentRun->update(['active_stage' => 'review', 'status' => 'completed', 'completed_at' => now()]);
+            }
 
-        DB::transaction(function () use ($developmentRun, $runner, $contract, $qaReport, $review) {
-            $agents = $runner->stageAgents();
+            return redirect()->route('development-runs.show', $developmentRun);
+        }
 
-            $developmentRun->artifacts()->firstOrCreate(
-                ['type' => 'stage_contract', 'title' => 'Contrato agente Revisión'],
-                [
-                    'body' => $contract->render('Revisión', $agents['review'], 'Cerrar el Development Run con resumen, evidencia y próximo paso humano.', ['context', 'technical_brief', 'implementation_slices', 'build_plan', 'opencode_execution', 'qa_report'], ['Ejecutar OpenCode con agente Review si está disponible', 'Sintetizar artifacts', 'No ejecutar cambios', 'Marcar cierre local', 'Usar fallback determinístico si el agente no responde'], ['review_report', 'final_status', 'human handoff', 'status: completed | fallback | failed']),
-                    'metadata' => ['stage' => 'review', 'agent' => $agents['review']],
-                    'created_by' => 'system',
-                ],
-            );
+        if ($developmentRun->status === 'review_running') {
+            return redirect()->route('development-runs.show', $developmentRun);
+        }
 
-            $developmentRun->artifacts()->firstOrCreate(
-                ['type' => 'review_report'],
-                [
-                    'title' => 'Cierre del Development Run',
-                    'body' => $review['body'] ?? $this->reviewReportBody($developmentRun->fresh(['artifacts']), $qaReport),
-                    'metadata' => $review['metadata'] ?? ['agent' => $agents['review'], 'status' => 'completed', 'generator' => 'deterministic', 'fallback' => true],
-                    'created_by' => $review['created_by'] ?? 'review-agent',
-                ],
-            );
-
-            $developmentRun->update(['active_stage' => 'review', 'status' => 'completed', 'completed_at' => now()]);
-        });
+        $this->startAgentStage($developmentRun, $background, 'review', 'Revisión en ejecución', "Review agent iniciado en background.\n\nLa página se actualiza sola mientras OpenCode genera el cierre del run.");
 
         return redirect()->route('development-runs.show', $developmentRun);
     }
 
-    /**
-     * @return array{body: string, metadata: array<string, mixed>, created_by: string}
-     */
-    private function reviewReportResultFor(DevelopmentRun $run, $qaReport, OpenCodeExecutionRunner $runner): array
+    private function startAgentStage(DevelopmentRun $run, DevelopmentRunBackgroundProcess $background, string $stage, string $title, string $body): void
     {
-        $profile = $runner->reviewProfile();
-        $fallback = fn (string $reason, ?int $exitCode = null, string $output = ''): array => [
-            'body' => $this->reviewReportBody($run, $qaReport),
-            'metadata' => [
-                'generator' => 'deterministic',
-                'fallback' => true,
-                'fallback_reason' => $reason,
-                'status' => 'completed',
-                'exit_code' => $exitCode,
-                'opencode_output' => $output !== '' ? substr($output, 0, 2000) : null,
-                ...$profile,
-            ],
-            'created_by' => 'review-agent',
-        ];
+        $artifactType = "{$stage}_background_run";
 
-        if (! $runner->isAvailable()) {
-            return $fallback('opencode_unavailable');
-        }
+        DB::transaction(function () use ($run, $stage, $artifactType, $title, $body) {
+            $run->artifacts()->updateOrCreate(
+                ['type' => $artifactType],
+                [
+                    'title' => $title,
+                    'body' => $body,
+                    'metadata' => ['stage' => $stage, 'status' => 'running', 'started_at' => now()->toISOString()],
+                    'created_by' => 'system',
+                ],
+            );
 
-        $workingDirectory = $this->planWorkingDirectory($run);
+            $run->update(['active_stage' => $stage, 'status' => "{$stage}_running"]);
+        });
 
-        try {
-            $result = $runner->runReview($workingDirectory, $this->reviewPromptFor($run));
-        } catch (Throwable $exception) {
-            return $fallback('opencode_exception', 1, $exception->getMessage());
-        }
+        $freshRun = $run->fresh();
+        $pid = match ($stage) {
+            'plan' => $background->startPlan($freshRun),
+            'slices' => $background->startSlices($freshRun),
+            'review' => $background->startReview($freshRun),
+            default => null,
+        };
 
-        if ($result['status'] !== 'completed' || trim($result['output']) === '') {
-            return $fallback('opencode_failed', $result['exit_code'], $result['output']);
-        }
-
-        return [
-            'body' => trim($result['output']),
-            'metadata' => [
-                'generator' => 'opencode',
-                'fallback' => false,
-                'status' => 'completed',
-                'exit_code' => $result['exit_code'],
-                'working_directory' => $workingDirectory,
-                ...$profile,
-            ],
-            'created_by' => 'opencode',
-        ];
+        $this->recordBackgroundStart($run, $artifactType, $pid, $background->lastStartMetadata());
     }
 
-    private function reviewPromptFor(DevelopmentRun $run): string
+    private function stageLabel(string $stage): string
     {
-        $artifacts = $run->artifacts
-            ->reject(fn ($artifact) => $artifact->type === 'review_report')
-            ->map(fn ($artifact) => "## {$artifact->title} ({$artifact->type})\n{$artifact->body}")
-            ->implode("\n\n");
-
-        return "Development Run\n"
-            ."Título: {$run->title}\n"
-            .'Repositorio: '.($run->repository ?: 'No definido')."\n"
-            .'Proyecto: '.($run->project ?: 'No definido')."\n\n"
-            ."Artifacts disponibles:\n{$artifacts}\n\n"
-            .'Generá el reporte final de cierre local. No modifiques archivos. No ejecutes Git. No ejecutes tests.';
-    }
-
-    private function allowLongRunningAgentRequest(): void
-    {
-        if (function_exists('set_time_limit')) {
-            @set_time_limit(0);
-        }
+        return match ($stage) {
+            'plan' => 'Plan',
+            'slices' => 'Slices',
+            'build' => 'Build',
+            'qa' => 'QA',
+            'review' => 'Revisión',
+            default => ucfirst($stage),
+        };
     }
 
     /**
@@ -783,27 +540,5 @@ class DevelopmentRunController extends Controller
         $artifact->update([
             'metadata' => [...($artifact->metadata ?? []), ...$startMetadata, 'pid' => $pid],
         ]);
-    }
-
-    private function reviewReportBody(DevelopmentRun $run, $qaReport): string
-    {
-        $artifactSummary = $run->artifacts
-            ->reject(fn ($artifact) => $artifact->type === 'review_report')
-            ->map(fn ($artifact) => "- {$artifact->title} ({$artifact->type})")
-            ->implode("\n");
-
-        return "Cierre del Development Run\n"
-            ."- Run: {$run->title}\n"
-            ."- Estado final: completed\n"
-            .'- Repositorio: '.($run->repository ?: 'No definido')."\n"
-            .'- Proyecto: '.($run->project ?: 'No definido')."\n\n"
-            ."Artifacts generados\n"
-            .($artifactSummary ?: '- No hay artifacts previos.')."\n\n"
-            ."Evidencia QA\n"
-            ."- {$qaReport->title}\n\n"
-            ."Handoff humano\n"
-            ."- Revisar artifacts antes de integrar cambios.\n"
-            ."- No se realizaron commits, stage, push ni cambios de remotos desde Command Flow.\n"
-            .'- Si el resultado requiere integración, hacerlo manualmente con revisión humana.';
     }
 }

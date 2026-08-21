@@ -9,15 +9,15 @@ class DevelopmentRunStaleExecutionDetector
 {
     public function recoverIfStale(DevelopmentRun $run): DevelopmentRun
     {
-        if (! in_array($run->status, ['build_running', 'qa_running'], true)) {
+        if (! in_array($run->status, ['plan_running', 'slices_running', 'build_running', 'qa_running', 'review_running'], true)) {
             return $run;
         }
 
-        $stage = $run->status === 'build_running' ? 'build' : 'qa';
-        $artifactType = $stage === 'build' ? 'build_background_run' : 'qa_background_run';
+        $stage = str($run->status)->before('_running')->toString();
+        $artifactType = "{$stage}_background_run";
         $artifact = $run->artifacts()->where('type', $artifactType)->first();
 
-        $finalArtifact = $run->artifacts()->where('type', $stage === 'build' ? 'opencode_execution' : 'qa_report')->first();
+        $finalArtifact = $run->artifacts()->where('type', $this->finalArtifactType($stage))->first();
         if ($finalArtifact) {
             return $this->recoverFromFinalArtifact($run, $artifact, $stage, $finalArtifact);
         }
@@ -34,8 +34,8 @@ class DevelopmentRunStaleExecutionDetector
             $run->artifacts()->updateOrCreate(
                 ['type' => $artifactType],
                 [
-                    'title' => $stage === 'build' ? 'Build interrumpido' : 'QA interrumpido',
-                    'body' => ($stage === 'build' ? 'Build' : 'QA')." quedó marcado como en ejecución, pero el proceso background ya no está activo.\n\nPID detectado: ".($pid > 0 ? $pid : 'no disponible')."\n\nPodés reintentar la etapa de forma segura.",
+                    'title' => $this->stageLabel($stage).' interrumpido',
+                    'body' => $this->stageLabel($stage)." quedó marcado como en ejecución, pero el proceso background ya no está activo.\n\nPID detectado: ".($pid > 0 ? $pid : 'no disponible')."\n\nPodés reintentar la etapa de forma segura.",
                     'metadata' => [...$metadata, 'status' => 'interrupted', 'interrupted_at' => now()->toISOString(), 'pid_was_running' => false],
                     'created_by' => 'system',
                 ],
@@ -43,7 +43,7 @@ class DevelopmentRunStaleExecutionDetector
 
             $run->update([
                 'active_stage' => $stage,
-                'status' => $stage === 'build' ? 'build_interrupted' : 'qa_interrupted',
+                'status' => "{$stage}_interrupted",
             ]);
         });
 
@@ -53,7 +53,7 @@ class DevelopmentRunStaleExecutionDetector
     private function recoverFromFinalArtifact(DevelopmentRun $run, $artifact, string $stage, $finalArtifact): DevelopmentRun
     {
         DB::transaction(function () use ($run, $artifact, $stage, $finalArtifact) {
-            $finalStatus = (string) data_get($finalArtifact->metadata, 'status', $stage === 'build' ? 'completed' : 'passed');
+            $finalStatus = (string) data_get($finalArtifact->metadata, 'status', $stage === 'qa' ? 'passed' : 'completed');
             $normalizedBackgroundStatus = in_array($finalStatus, ['completed', 'passed'], true) ? 'completed' : $finalStatus;
             $backgroundTitleStatus = match ($normalizedBackgroundStatus) {
                 'completed' => 'completado',
@@ -64,16 +64,19 @@ class DevelopmentRunStaleExecutionDetector
 
             if ($artifact) {
                 $artifact->update([
-                    'title' => ($stage === 'build' ? 'Build' : 'QA')." {$backgroundTitleStatus}",
+                    'title' => $this->stageLabel($stage)." {$backgroundTitleStatus}",
                     'metadata' => [...($artifact->metadata ?? []), 'status' => $normalizedBackgroundStatus, 'finished_at' => data_get($artifact->metadata, 'finished_at') ?: now()->toISOString()],
                 ]);
             }
 
-            [$status, $activeStage] = $stage === 'build'
-                ? $this->buildStateFromFinalStatus($finalStatus)
-                : $this->qaStateFromFinalStatus($finalStatus);
+            [$status, $activeStage] = $this->stateFromFinalStatus($stage, $finalStatus);
 
-            $run->update(['active_stage' => $activeStage, 'status' => $status]);
+            $updates = ['active_stage' => $activeStage, 'status' => $status];
+            if ($stage === 'review' && $status === 'completed' && $run->completed_at === null) {
+                $updates['completed_at'] = now();
+            }
+
+            $run->update($updates);
         });
 
         return $run->fresh();
@@ -82,22 +85,43 @@ class DevelopmentRunStaleExecutionDetector
     /**
      * @return array{0: string, 1: string}
      */
-    private function buildStateFromFinalStatus(string $status): array
+    private function stateFromFinalStatus(string $stage, string $status): array
     {
-        return $status === 'completed'
-            ? ['build_executed', 'qa']
-            : [$status === 'blocked' ? 'execution_blocked' : 'execution_failed', 'build'];
+        return match ($stage) {
+            'plan' => $status === 'completed' ? ['planning', 'plan'] : ['plan_blocked', 'plan'],
+            'slices' => $status === 'completed' ? ['slicing', 'slices'] : ['slices_blocked', 'slices'],
+            'build' => $status === 'completed' ? ['build_executed', 'qa'] : [$status === 'blocked' ? 'execution_blocked' : 'execution_failed', 'build'],
+            'qa' => match ($status) {
+                'passed' => ['qa_passed', 'review'],
+                'failed' => ['qa_failed', 'qa'],
+                default => ['qa_blocked', 'qa'],
+            },
+            'review' => $status === 'completed' ? ['completed', 'review'] : ['review_blocked', 'review'],
+            default => ["{$stage}_blocked", $stage],
+        };
     }
 
-    /**
-     * @return array{0: string, 1: string}
-     */
-    private function qaStateFromFinalStatus(string $status): array
+    private function finalArtifactType(string $stage): string
     {
-        return match ($status) {
-            'passed' => ['qa_passed', 'review'],
-            'failed' => ['qa_failed', 'qa'],
-            default => ['qa_blocked', 'qa'],
+        return match ($stage) {
+            'plan' => 'technical_brief',
+            'slices' => 'implementation_slices',
+            'build' => 'opencode_execution',
+            'qa' => 'qa_report',
+            'review' => 'review_report',
+            default => "{$stage}_result",
+        };
+    }
+
+    private function stageLabel(string $stage): string
+    {
+        return match ($stage) {
+            'plan' => 'Plan',
+            'slices' => 'Slices',
+            'build' => 'Build',
+            'qa' => 'QA',
+            'review' => 'Revisión',
+            default => ucfirst($stage),
         };
     }
 }

@@ -90,6 +90,7 @@ Flujo principal:
 
 Ejecución background:
 
+- Plan, Slices, Build, QA y Revisión pueden correr en background con polling, cancelación, retry o recuperación de estados stale según corresponda a cada etapa.
 - Build y QA marcan `build_running`/`qa_running`, guardan PID, PHP usado, log path y error log path.
 - La pantalla consulta `GET /development-runs/{run}/status` y se actualiza cuando cambia el estado.
 - **Cancelar ejecución** detiene el árbol de procesos y marca `build_cancelled` o `qa_cancelled`.

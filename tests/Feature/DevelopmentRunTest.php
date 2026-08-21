@@ -25,6 +25,43 @@ class DevelopmentRunTest extends TestCase
                 return false;
             }
         });
+        app()->instance(DevelopmentRunBackgroundProcess::class, new class extends DevelopmentRunBackgroundProcess
+        {
+            public function startPlan(DevelopmentRun $run): ?int
+            {
+                return 1111;
+            }
+
+            public function startSlices(DevelopmentRun $run): ?int
+            {
+                return 2222;
+            }
+
+            public function startBuild(DevelopmentRun $run): ?int
+            {
+                return 3333;
+            }
+
+            public function startQa(DevelopmentRun $run): ?int
+            {
+                return 4444;
+            }
+
+            public function startReview(DevelopmentRun $run): ?int
+            {
+                return 5555;
+            }
+
+            public function isRunning(?int $pid): bool
+            {
+                return in_array($pid, [1111, 2222, 3333, 4444, 5555], true);
+            }
+
+            public function lastStartMetadata(): array
+            {
+                return ['log_path' => 'storage/logs/stage.log', 'error_log_path' => 'storage/logs/stage.err.log', 'php_executable' => 'php.exe'];
+            }
+        });
     }
 
     public function test_create_page_renders_command_flow_intake_copy(): void
@@ -266,7 +303,7 @@ class DevelopmentRunTest extends TestCase
             ->assertSee(route('home'));
     }
 
-    public function test_generating_a_technical_brief_persists_it_and_advances_the_run_to_plan(): void
+    public function test_generating_a_technical_brief_starts_plan_in_background(): void
     {
         $run = DevelopmentRun::create([
             'title' => 'Resolver acceso',
@@ -284,16 +321,17 @@ class DevelopmentRunTest extends TestCase
 
         $this->assertDatabaseHas('development_run_artifacts', [
             'development_run_id' => $run->id,
-            'type' => 'technical_brief',
-            'title' => 'Brief técnico inicial',
+            'type' => 'plan_background_run',
+            'title' => 'Plan en ejecución',
             'created_by' => 'system',
         ]);
-        $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'planning', 'active_stage' => 'plan']);
+        $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'plan_running', 'active_stage' => 'plan']);
+        $background = $run->artifacts()->where('type', 'plan_background_run')->firstOrFail();
+        $this->assertSame(1111, $background->metadata['pid']);
         $this->get(route('development-runs.show', $run))
-            ->assertSee('Brief técnico inicial')
-            ->assertSee('No tocar la configuración de producción.')
+            ->assertSee('Plan está corriendo en background')
             ->assertDontSee('Comenzar')
-            ->assertSee('Definir slices')
+            ->assertDontSee('Definir slices')
             ->assertSee('Volver')
             ->assertDontSee('Volver a contexto');
     }
@@ -324,6 +362,9 @@ class DevelopmentRunTest extends TestCase
 
         $this->post(route('development-runs.technical-brief.store', $run))
             ->assertRedirect(route('development-runs.show', $run));
+
+        $this->artisan('development-run:execute-plan', ['run' => $run->id])
+            ->assertSuccessful();
 
         $brief = $run->artifacts()->where('type', 'technical_brief')->firstOrFail();
         $this->assertSame('opencode', $brief->created_by);
@@ -358,6 +399,9 @@ class DevelopmentRunTest extends TestCase
         $this->post(route('development-runs.technical-brief.store', $run))
             ->assertRedirect(route('development-runs.show', $run));
 
+        $this->artisan('development-run:execute-plan', ['run' => $run->id])
+            ->assertSuccessful();
+
         $brief = $run->artifacts()->where('type', 'technical_brief')->firstOrFail();
         $this->assertSame('system', $brief->created_by);
         $this->assertSame('deterministic', $brief->metadata['generator']);
@@ -372,6 +416,7 @@ class DevelopmentRunTest extends TestCase
         $run = DevelopmentRun::create(['title' => 'Resolver acceso', 'initial_context' => 'Validar el permiso pendiente.', 'started_at' => now()]);
 
         $this->post(route('development-runs.technical-brief.store', $run));
+        $this->artisan('development-run:execute-plan', ['run' => $run->id])->assertSuccessful();
         $this->post(route('development-runs.technical-brief.store', $run));
 
         $this->assertSame(1, $run->artifacts()->where('type', 'technical_brief')->count());
@@ -433,7 +478,7 @@ class DevelopmentRunTest extends TestCase
         ]);
 
         $this->get(route('development-runs.show', $run))
-            ->assertSee('Definir slices');
+            ->assertDontSee('Definir slices');
 
         $run->artifacts()->create([
             'type' => 'technical_brief',
@@ -458,7 +503,7 @@ class DevelopmentRunTest extends TestCase
             ->assertSee('Definir slices');
     }
 
-    public function test_generating_implementation_slices_persists_them_and_advances_to_slices(): void
+    public function test_generating_implementation_slices_starts_slices_in_background(): void
     {
         $run = DevelopmentRun::create([
             'title' => 'Resolver acceso',
@@ -479,14 +524,16 @@ class DevelopmentRunTest extends TestCase
 
         $this->assertDatabaseHas('development_run_artifacts', [
             'development_run_id' => $run->id,
-            'type' => 'implementation_slices',
-            'title' => 'Slices de implementación',
+            'type' => 'slices_background_run',
+            'title' => 'Slices en ejecución',
             'created_by' => 'system',
         ]);
-        $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'slicing', 'active_stage' => 'slices']);
+        $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'slices_running', 'active_stage' => 'slices']);
+        $background = $run->artifacts()->where('type', 'slices_background_run')->firstOrFail();
+        $this->assertSame(2222, $background->metadata['pid']);
         $this->get(route('development-runs.show', $run))
-            ->assertSee('Slice 1')
-            ->assertSee('Preparar Build')
+            ->assertSee('Slices está corriendo en background')
+            ->assertDontSee('Preparar Build')
             ->assertSee('Volver')
             ->assertDontSee('Volver al plan');
     }
@@ -517,6 +564,9 @@ class DevelopmentRunTest extends TestCase
 
         $this->post(route('development-runs.implementation-slices.store', $run))
             ->assertRedirect(route('development-runs.show', $run));
+
+        $this->artisan('development-run:execute-slices', ['run' => $run->id])
+            ->assertSuccessful();
 
         $slices = $run->artifacts()->where('type', 'implementation_slices')->firstOrFail();
         $this->assertSame('opencode', $slices->created_by);
@@ -552,6 +602,9 @@ class DevelopmentRunTest extends TestCase
         $this->post(route('development-runs.implementation-slices.store', $run))
             ->assertRedirect(route('development-runs.show', $run));
 
+        $this->artisan('development-run:execute-slices', ['run' => $run->id])
+            ->assertSuccessful();
+
         $slices = $run->artifacts()->where('type', 'implementation_slices')->firstOrFail();
         $this->assertSame('system', $slices->created_by);
         $this->assertSame('deterministic', $slices->metadata['generator']);
@@ -570,7 +623,7 @@ class DevelopmentRunTest extends TestCase
             'active_stage' => 'slices',
             'started_at' => now(),
         ]);
-        $run->artifacts()->create(['type' => 'implementation_slices', 'title' => 'Slices de implementación', 'body' => 'Slice 1 — Preparar cambio mínimo']);
+        $run->artifacts()->create(['type' => 'implementation_slices', 'title' => 'Slices de implementación', 'body' => "Slice 1 — Ubicar sección\nObjetivo: solo lectura.\n\nSlice 2 — Agregar aclaración compacta\nObjetivo: editar README con la explicación mínima."]);
 
         $this->post(route('development-runs.build-plan.store', $run))
             ->assertRedirect(route('development-runs.show', $run));
@@ -582,6 +635,10 @@ class DevelopmentRunTest extends TestCase
             'created_by' => 'system',
         ]);
         $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'ready_for_build', 'active_stage' => 'build']);
+        $buildPlan = $run->artifacts()->where('type', 'build_plan')->firstOrFail();
+        $this->assertStringContainsString('Slice 2 — Agregar aclaración compacta', $buildPlan->body);
+        $this->assertStringContainsString('editar README', $buildPlan->body);
+        $this->assertStringNotContainsString('modo read-only', $buildPlan->body);
         $this->get(route('development-runs.show', $run->fresh()))
             ->assertSee('Build')
             ->assertSee('Plan de build inicial')
@@ -619,8 +676,9 @@ class DevelopmentRunTest extends TestCase
         $this->assertStringContainsString('Este prompt está dirigido al worker de Build, no al orquestador.', $prompt->body);
         $this->assertStringContainsString("No respondas '¿En qué puedo ayudarte?'", $prompt->body);
         $this->assertStringContainsString("No respondas 'Dame el comando'", $prompt->body);
-        $this->assertStringContainsString('modo read-only', $prompt->body);
-        $this->assertStringContainsString('No modificar archivos', $prompt->body);
+        $this->assertStringContainsString('Plan de build seleccionado', $prompt->body);
+        $this->assertStringContainsString('Informar archivos modificados', $prompt->body);
+        $this->assertStringContainsString('No commitear, stagear, pushear ni cambiar remotos', $prompt->body);
         $this->assertStringContainsString('Formato de respuesta obligatorio', $prompt->body);
         $this->get(route('development-runs.show', $run->fresh()))
             ->assertSee('Prompt de ejecución OpenCode')
@@ -1070,7 +1128,7 @@ class DevelopmentRunTest extends TestCase
         $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'qa_failed', 'active_stage' => 'qa']);
     }
 
-    public function test_review_closes_the_development_run_after_qa(): void
+    public function test_review_starts_in_background_after_qa(): void
     {
         $run = DevelopmentRun::create([
             'title' => 'Resolver acceso',
@@ -1089,14 +1147,15 @@ class DevelopmentRunTest extends TestCase
 
         $this->assertDatabaseHas('development_run_artifacts', [
             'development_run_id' => $run->id,
-            'type' => 'review_report',
-            'title' => 'Cierre del Development Run',
-            'created_by' => 'review-agent',
+            'type' => 'review_background_run',
+            'title' => 'Revisión en ejecución',
+            'created_by' => 'system',
         ]);
-        $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'completed', 'active_stage' => 'review']);
-        $this->assertNotNull($run->fresh()->completed_at);
+        $this->assertDatabaseHas('development_runs', ['id' => $run->id, 'status' => 'review_running', 'active_stage' => 'review']);
+        $background = $run->artifacts()->where('type', 'review_background_run')->firstOrFail();
+        $this->assertSame(5555, $background->metadata['pid']);
         $this->get(route('development-runs.show', $run->fresh()))
-            ->assertSee('Cierre del Development Run')
+            ->assertSee('Revisión está corriendo en background')
             ->assertDontSee(route('development-runs.review.store', $run), false);
     }
 
@@ -1111,6 +1170,10 @@ class DevelopmentRunTest extends TestCase
 
             public function runReview(string $workingDirectory, string $prompt): array
             {
+                if (str_contains($prompt, 'review_background_run') || str_contains($prompt, 'Revisión en ejecución')) {
+                    throw new \RuntimeException('Review prompt must not include the running review background artifact.');
+                }
+
                 return ['status' => 'completed', 'exit_code' => 0, 'output' => "Cierre del Development Run\n- Cierre desde OpenCode Review\n\nHandoff humano\n- Revisar y decidir."];
             }
         });
@@ -1128,6 +1191,9 @@ class DevelopmentRunTest extends TestCase
 
         $this->post(route('development-runs.review.store', $run))
             ->assertRedirect(route('development-runs.show', $run));
+
+        $this->artisan('development-run:execute-review', ['run' => $run->id])
+            ->assertSuccessful();
 
         $review = $run->artifacts()->where('type', 'review_report')->firstOrFail();
         $this->assertSame('opencode', $review->created_by);
@@ -1166,6 +1232,9 @@ class DevelopmentRunTest extends TestCase
         $this->post(route('development-runs.review.store', $run))
             ->assertRedirect(route('development-runs.show', $run));
 
+        $this->artisan('development-run:execute-review', ['run' => $run->id])
+            ->assertSuccessful();
+
         $review = $run->artifacts()->where('type', 'review_report')->firstOrFail();
         $this->assertSame('review-agent', $review->created_by);
         $this->assertSame('deterministic', $review->metadata['generator']);
@@ -1173,6 +1242,8 @@ class DevelopmentRunTest extends TestCase
         $this->assertSame('opencode_failed', $review->metadata['fallback_reason']);
         $this->assertSame(1, $review->metadata['exit_code']);
         $this->assertStringContainsString('Cierre del Development Run', $review->body);
+        $this->assertStringNotContainsString('review_background_run', $review->body);
+        $this->assertStringNotContainsString('Revisión en ejecución', $review->body);
         $this->assertNotNull($run->fresh()->completed_at);
     }
 
@@ -1275,6 +1346,7 @@ class DevelopmentRunTest extends TestCase
         $run->artifacts()->create(['type' => 'technical_brief', 'title' => 'Brief técnico inicial', 'body' => 'El brief ya fue generado.']);
 
         $this->post(route('development-runs.implementation-slices.store', $run));
+        $this->artisan('development-run:execute-slices', ['run' => $run->id])->assertSuccessful();
         $this->post(route('development-runs.implementation-slices.store', $run));
 
         $this->assertSame(1, $run->artifacts()->where('type', 'implementation_slices')->count());
@@ -1336,7 +1408,7 @@ class DevelopmentRunTest extends TestCase
         ]);
 
         $this->get(route('development-runs.show', $run->fresh()))
-            ->assertSee('Generar brief')
+            ->assertSee('Volver a Plan')
             ->assertSee('Volver')
             ->assertDontSee('Continuar al plan')
             ->assertDontSee('Comenzar');
